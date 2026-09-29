@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { CURRENCIES } from '../../data/categories';
 import {
@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Check,
   Languages,
+  LogIn,
 } from 'lucide-react';
 
 export const SettingsView = () => {
@@ -27,6 +28,20 @@ export const SettingsView = () => {
     t,
   } = useFinance();
 
+  const [activeUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('moneydairy_user');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.error(e);
+    }
+    return {
+      name: 'Alex Phommaseng',
+      email: 'alex@moneydairy.app',
+      initials: 'EP',
+    };
+  });
+
   return (
     <div className="flex-1 px-5 pt-6 pb-28 space-y-5 animate-fade-in">
       {/* Title */}
@@ -41,21 +56,32 @@ export const SettingsView = () => {
       </div>
 
       {/* User Profile Card */}
-      <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-card flex items-center space-x-3.5">
-        <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-emerald-500 to-indigo-600 p-[2px]">
-          <div className="w-full h-full rounded-[14px] bg-white dark:bg-slate-900 flex items-center justify-center font-extrabold text-lg text-emerald-500">
-            EP
+      <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-card flex items-center justify-between">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-emerald-500 to-indigo-600 p-[2px]">
+            <div className="w-full h-full rounded-[14px] bg-white dark:bg-slate-900 flex items-center justify-center font-extrabold text-lg text-emerald-500">
+              {activeUser.initials || 'EP'}
+            </div>
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              {activeUser.name}
+            </h2>
+            <p className="text-xs text-slate-400">{activeUser.email}</p>
+            <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
+              {t('common.proPlanActive')}
+            </span>
           </div>
         </div>
-        <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">
-            Alex Phommaseng
-          </h2>
-          <p className="text-xs text-slate-400">alex@moneydairy.app</p>
-          <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
-            {t('common.proPlanActive')}
-          </span>
-        </div>
+
+        <a
+          href="/login funciton test/home.html"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-all border border-slate-200 dark:border-slate-700 shadow-sm"
+          title="Open Authentication & Login Portal"
+        >
+          <LogIn className="w-3.5 h-3.5 text-emerald-500" />
+          <span>Login / Auth</span>
+        </a>
       </div>
 
       {/* Language Section */}

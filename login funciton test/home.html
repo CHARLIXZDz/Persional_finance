@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="lo" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0A0F1D">
+  <meta name="description" content="MoneyDairy - Modern Fintech Login & Authentication Portal">
+  <title>MoneyDairy • Login & Register Portal</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans, Noto Sans Lao, Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Confetti library for celebration animations -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="home_login.css">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="ambient-glow glow-emerald" aria-hidden="true"></div>
+  <div class="ambient-glow glow-indigo" aria-hidden="true"></div>
+  <div class="ambient-glow glow-rose" aria-hidden="true"></div>
+
+  <!-- Main Root Container -->
+  <div class="page-wrapper">
+    <div class="app-shell" id="appShell">
+
+      <!-- Top Header Bar -->
+      <header class="top-nav">
+        <!-- Logo & Brand Badge -->
+        <a href="../index.html" class="brand-badge" title="MoneyDairy Home">
+          <div class="brand-icon">
+            <span class="brand-emoji">💸</span>
+          </div>
+          <div class="brand-text-group">
+            <span class="brand-name">MoneyDairy</span>
+            <span class="brand-sub">Fintech Pro</span>
+          </div>
+        </a>
+
+        <!-- Controls: Language & Theme -->
+        <div class="nav-controls">
+          <!-- Language Dropdown -->
+          <div class="language-dropdown-wrapper" id="langDropdownWrapper">
+            <button class="control-btn lang-btn" id="langDropdownBtn" aria-label="Select Language" type="button">
+              <span id="currentLangFlag">🇱🇦</span>
+              <span id="currentLangLabel">ລາວ</span>
+              <svg class="chevron-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M6 9l6 6 6-6"/>
+              </svg>
+            </button>
+            <div class="dropdown-menu" id="langMenu" hidden>
+              <button class="dropdown-item active" data-lang="lo" type="button">
+                <span class="item-flag">🇱🇦</span>
+                <div class="item-text">
+                  <span class="item-title">ພາສາລາວ</span>
+                  <span class="item-desc">Lao</span>
+                </div>
+                <span class="active-dot"></span>
+              </button>
+              <button class="dropdown-item" data-lang="en" type="button">
+                <span class="item-flag">🇺🇸</span>
+                <div class="item-text">
+                  <span class="item-title">English</span>
+                  <span class="item-desc">United States</span>
+                </div>
+                <span class="active-dot"></span>
+              </button>
+              <button class="dropdown-item" data-lang="vi" type="button">
+                <span class="item-flag">🇻🇳</span>
+                <div class="item-text">
+                  <span class="item-title">Tiếng Việt</span>
+                  <span class="item-desc">Vietnamese</span>
+                </div>
+                <span class="active-dot"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Theme Toggle -->
+          <button class="control-btn theme-btn" id="themeToggleBtn" aria-label="Toggle Theme" type="button" title="Toggle Dark/Light Mode">
+            <svg class="theme-icon sun-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+            <svg class="theme-icon moon-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Fast Testing Pill Bar (Quick Demo Fill) -->
+      <div class="quick-demo-bar" id="quickDemoBar">
+        <span class="demo-tag" data-i18n="quickDemoLabel">⚡ ທົດລອງດ່ວນ:</span>
+        <div class="demo-chips">
+          <button class="demo-chip" id="chipAlex" type="button" title="Fill Alex Phommaseng details">
+            <span class="chip-avatar">EP</span>
+            <span class="chip-name" data-i18n="demoAlex">Alex (Pro)</span>
+          </button>
+          <button class="demo-chip" id="chipGuest" type="button" title="Fill Demo Guest details">
+            <span class="chip-avatar guest">GD</span>
+            <span class="chip-name" data-i18n="demoGuest">Guest Demo</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- MAIN CONTENT VIEW AREA -->
+      <main class="main-content">
+
+        <!-- LOGGED-IN VIEW (Active when user is authenticated) -->
+        <div class="view-panel logged-in-panel" id="loggedInPanel" hidden>
+          <div class="user-hero-card">
+            <div class="user-avatar-glow">
+              <div class="user-avatar-inner" id="userAvatarText">EP</div>
+            </div>
+            <div class="user-info-group">
+              <div class="user-name-row">
+                <h2 class="user-display-name" id="userDisplayName">Alex Phommaseng</h2>
+                <span class="badge-pro" data-i18n="badgePro">PRO</span>
+              </div>
+              <p class="user-email-text" id="userDisplayEmail">alex@moneydairy.app</p>
+              <div class="user-status-pill">
+                <span class="pulse-indicator"></span>
+                <span data-i18n="sessionActive">ບັນຊີພ້ອມໃຊ້ງານ • ໂໝດປອດໄພ</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Stats / Session Overview -->
+          <div class="session-stats-grid">
+            <div class="stat-mini-card">
+              <span class="stat-mini-label" data-i18n="statBalance">ຍອດເງິນຄາດຄະເນ</span>
+              <span class="stat-mini-val text-emerald">₭ 48,500,000</span>
+            </div>
+            <div class="stat-mini-card">
+              <span class="stat-mini-label" data-i18n="statSecurity">ລະດັບຄວາມປອດໄພ</span>
+              <span class="stat-mini-val text-indigo">2FA • Active</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="logged-in-actions">
+            <a href="../index.html" class="btn-primary btn-launch" id="btnLaunchApp">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+              <span data-i18n="btnLaunchApp">ເປີດແອັບ MoneyDairy ຫຼັກ</span>
+            </a>
+
+            <button class="btn-secondary" id="btnTestBiometricAgain" type="button">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+              </svg>
+              <span data-i18n="btnTestBiometric">ທົດສອບສະແກນ FaceID ອີກຄັ້ງ</span>
+            </button>
+
+            <button class="btn-danger-outline" id="btnLogout" type="button">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+              </svg>
+              <span data-i18n="btnLogout">ອອກຈາກລະບົບ</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- AUTH TABS & FORMS CONTAINER (Active when logged out) -->
+        <div class="auth-box" id="authBox">
+          <!-- Hero Header Text -->
+          <div class="auth-header">
+            <h1 class="auth-title" id="authMainTitle" data-i18n="titleSignIn">ຍິນດີຕ້ອນຮັບກັບມາ</h1>
+            <p class="auth-subtitle" id="authSubTitle" data-i18n="subSignIn">ເຂົ້າສູ່ລະບົບເພື່ອຈັດການງົບປະມານ ແລະ ການເງິນຂອງທ່ານ</p>
+          </div>
+
+          <!-- Segmented Tab Switcher (Sign In vs Sign Up) -->
+          <div class="tab-switcher" role="tablist">
+            <button class="tab-btn active" id="tabSignInBtn" role="tab" aria-selected="true" type="button" data-i18n="tabSignIn">
+              ເຂົ້າສູ່ລະບົບ
+            </button>
+            <button class="tab-btn" id="tabSignUpBtn" role="tab" aria-selected="false" type="button" data-i18n="tabSignUp">
+              ສ້າງບັນຊີໃໝ່
+            </button>
+            <div class="tab-slider" id="tabSlider"></div>
+          </div>
+
+          <!-- SIGN IN FORM -->
+          <form class="auth-form" id="signInForm" novalidate>
+            <!-- Email / User Input -->
+            <div class="form-group" id="signInEmailGroup">
+              <label for="signInEmail" class="form-label" data-i18n="labelEmail">ອີເມວ ຫຼື ຊື່ຜູ້ໃຊ້</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                </span>
+                <input type="text" id="signInEmail" name="email" class="form-input" placeholder="alex@moneydairy.app" autocomplete="email" required>
+              </div>
+              <span class="field-error" id="signInEmailError"></span>
+            </div>
+
+            <!-- Password Input -->
+            <div class="form-group" id="signInPasswordGroup">
+              <div class="label-with-link">
+                <label for="signInPassword" class="form-label" data-i18n="labelPassword">ລະຫັດຜ່ານ</label>
+                <button type="button" class="forgot-link" id="btnForgotPassword" data-i18n="linkForgotPassword">ລືມລະຫັດຜ່ານ?</button>
+              </div>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                </span>
+                <input type="password" id="signInPassword" name="password" class="form-input" placeholder="••••••••" autocomplete="current-password" required>
+                <button type="button" class="btn-toggle-password" id="toggleSignInPassword" aria-label="Toggle password visibility">
+                  <svg class="eye-show" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg class="eye-hide" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" hidden>
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                </button>
+              </div>
+              <span class="field-error" id="signInPasswordError"></span>
+            </div>
+
+            <!-- Remember Me -->
+            <div class="form-row-remember">
+              <label class="custom-checkbox">
+                <input type="checkbox" id="rememberMeCheckbox" checked>
+                <span class="checkbox-indicator">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </span>
+                <span class="checkbox-label" data-i18n="rememberDevice">ຈື່ການເຂົ້າສູ່ລະບົບໃນອຸປະກອນນີ້</span>
+              </label>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn-primary" id="btnSubmitSignIn">
+              <span class="btn-spinner" id="signInSpinner" hidden></span>
+              <span class="btn-text" id="signInBtnText" data-i18n="btnSignIn">ເຂົ້າສູ່ລະບົບ</span>
+            </button>
+          </form>
+
+          <!-- SIGN UP FORM -->
+          <form class="auth-form" id="signUpForm" novalidate hidden>
+            <!-- Full Name -->
+            <div class="form-group" id="signUpNameGroup">
+              <label for="signUpName" class="form-label" data-i18n="labelFullName">ຊື່ ແລະ ນາມສະກຸນ</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </span>
+                <input type="text" id="signUpName" name="fullname" class="form-input" placeholder="ເຊັ່ນ: Alex Phommaseng" autocomplete="name" required>
+              </div>
+              <span class="field-error" id="signUpNameError"></span>
+            </div>
+
+            <!-- Email -->
+            <div class="form-group" id="signUpEmailGroup">
+              <label for="signUpEmail" class="form-label" data-i18n="labelEmail">ອີເມວ</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                  </svg>
+                </span>
+                <input type="email" id="signUpEmail" name="email" class="form-input" placeholder="yourname@gmail.com" autocomplete="email" required>
+              </div>
+              <span class="field-error" id="signUpEmailError"></span>
+            </div>
+
+            <!-- Password with Strength Meter -->
+            <div class="form-group" id="signUpPasswordGroup">
+              <label for="signUpPassword" class="form-label" data-i18n="labelPassword">ລະຫັດຜ່ານ</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                  </svg>
+                </span>
+                <input type="password" id="signUpPassword" name="password" class="form-input" placeholder="••••••••" autocomplete="new-password" required>
+                <button type="button" class="btn-toggle-password" id="toggleSignUpPassword" aria-label="Toggle password visibility">
+                  <svg class="eye-show" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg class="eye-hide" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" hidden>
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Real-time Strength Meter -->
+              <div class="strength-meter-container" id="strengthMeterContainer">
+                <div class="strength-bars">
+                  <div class="strength-bar" id="bar1"></div>
+                  <div class="strength-bar" id="bar2"></div>
+                  <div class="strength-bar" id="bar3"></div>
+                  <div class="strength-bar" id="bar4"></div>
+                </div>
+                <div class="strength-text-row">
+                  <span class="strength-hint" data-i18n="strengthHint">ຄວາມແຂງແຮງ:</span>
+                  <span class="strength-status" id="strengthStatusText">-</span>
+                </div>
+              </div>
+              <span class="field-error" id="signUpPasswordError"></span>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="form-group" id="signUpConfirmGroup">
+              <label for="signUpConfirmPassword" class="form-label" data-i18n="labelConfirmPassword">ຢືນຢັນລະຫັດຜ່ານ</label>
+              <div class="input-wrapper">
+                <span class="input-icon">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                </span>
+                <input type="password" id="signUpConfirmPassword" name="confirmPassword" class="form-input" placeholder="••••••••" autocomplete="new-password" required>
+              </div>
+              <span class="field-error" id="signUpConfirmError"></span>
+            </div>
+
+            <!-- Agree Terms -->
+            <div class="form-row-terms">
+              <label class="custom-checkbox">
+                <input type="checkbox" id="termsCheckbox" required>
+                <span class="checkbox-indicator">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </span>
+                <span class="checkbox-label" data-i18n="agreeTerms">ຂ້າພະເຈົ້າຍອມຮັບເງື່ອນໄຂການບໍລິການ ແລະ ຄວາມເປັນສ່ວນຕົວ</span>
+              </label>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="btn-primary" id="btnSubmitSignUp">
+              <span class="btn-spinner" id="signUpSpinner" hidden></span>
+              <span class="btn-text" id="signUpBtnText" data-i18n="btnSignUp">ສ້າງບັນຊີຟຣີ</span>
+            </button>
+          </form>
+
+          <!-- ALTERNATIVE AUTH METHODS DIVIDER -->
+          <div class="alt-divider">
+            <span class="divider-line"></span>
+            <span class="divider-text" data-i18n="orContinueWith">ຫຼື ເຂົ້າສູ່ລະບົບດ້ວຍ</span>
+            <span class="divider-line"></span>
+          </div>
+
+          <!-- Biometric FaceID / Fingerprint Button -->
+          <button class="btn-biometric" id="btnBiometricLogin" type="button">
+            <div class="biometric-icon-wrap">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                <path d="M9 9h.01M15 9h.01M9 15c1 1 2 1.5 3 1.5s2-.5 3-1.5"/>
+              </svg>
+            </div>
+            <div class="biometric-label-wrap">
+              <span class="biometric-title" data-i18n="biometricTitle">FaceID / ສະແກນລາຍນິ້ວມື</span>
+              <span class="biometric-subtitle" data-i18n="biometricSub">ເຂົ້າສູ່ລະບົບໄວດ້ວຍລະບົບຊີວະມິຕິ</span>
+            </div>
+          </button>
+
+          <!-- Social Login Grid -->
+          <div class="social-grid">
+            <button class="social-btn" id="btnGoogleAuth" type="button" title="Sign in with Google">
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.8 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.4l3.7 2.9C6.5 7.4 9 5 12 5z"/>
+                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z"/>
+                <path fill="#FBBC05" d="M5.6 14.7c-.2-.7-.4-1.5-.4-2.7 0-1.1.1-2 .4-2.7L1.9 6.4C.7 8.8 0 10.8 0 12c0 2.2.7 4.2 1.9 6.6l3.7-2.9z"/>
+                <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.4-6.4-5.3L1.9 16c1.8 3.8 5.6 7 10.1 7z"/>
+              </svg>
+              <span>Google</span>
+            </button>
+            <button class="social-btn" id="btnAppleAuth" type="button" title="Sign in with Apple">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.65-.8 1.1-1.92.97-3.04-.96.04-2.11.64-2.78 1.43-.59.68-1.11 1.79-.97 2.88 1.07.08 2.14-.54 2.78-1.27z"/>
+              </svg>
+              <span>Apple</span>
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <!-- Footer Info -->
+      <footer class="app-footer">
+        <div class="footer-links">
+          <a href="#" id="linkPrivacy" data-i18n="linkPrivacy">ຄວາມເປັນສ່ວນຕົວ</a>
+          <span>•</span>
+          <a href="#" id="linkTerms" data-i18n="linkTerms">ເງື່ອນໄຂ</a>
+          <span>•</span>
+          <a href="../index.html" data-i18n="linkReturnApp">ກັບສູ່ແອັບຫຼັກ</a>
+        </div>
+        <p class="footer-copy">MoneyDairy v1.1.0 • Secure Authentication Suite</p>
+      </footer>
+    </div>
+  </div>
+
+  <!-- FORGOT PASSWORD MODAL DIALOG -->
+  <div class="modal-backdrop" id="forgotModalBackdrop" hidden>
+    <div class="modal-dialog" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div class="modal-icon-badge">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <h3 class="modal-title" data-i18n="modalForgotTitle">ຕັ້ງລະຫັດຜ່ານໃໝ່</h3>
+        <p class="modal-desc" data-i18n="modalForgotDesc">ກະລຸນາປ້ອນອີເມວຂອງທ່ານ ເພື່ອຮັບລິ້ງກູ້ຄືນລະຫັດຜ່ານ.</p>
+      </div>
+
+      <form id="forgotPasswordForm" class="modal-form">
+        <div class="form-group">
+          <label for="forgotEmail" class="form-label" data-i18n="labelEmail">ອີເມວ</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </span>
+            <input type="email" id="forgotEmail" class="form-input" placeholder="alex@moneydairy.app" required>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-modal-cancel" id="btnCancelForgot" data-i18n="btnCancel">ຍົກເລີກ</button>
+          <button type="submit" class="btn-primary" id="btnSendReset" data-i18n="btnSendReset">ສົ່ງລິ້ງກູ້ຄືນ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- BIOMETRIC SCAN SIMULATION MODAL -->
+  <div class="modal-backdrop" id="biometricModalBackdrop" hidden>
+    <div class="modal-dialog biometric-dialog" role="dialog" aria-modal="true">
+      <div class="scan-target">
+        <div class="scan-beam"></div>
+        <div class="scan-reticle">
+          <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.2">
+            <path d="M12 2a10 10 0 0 0-10 10c0 4.2 2.6 7.8 6.3 9.3"/>
+            <path d="M12 6a6 6 0 0 0-6 6c0 2.2 1.2 4.1 3 5.2"/>
+            <path d="M12 10a2 2 0 0 0-2 2c0 .6.3 1.2.7 1.6"/>
+            <path d="M12 14v4M12 18h4M16 12h4M16 16l4 4"/>
+          </svg>
+        </div>
+      </div>
+      <h3 class="biometric-scan-title" data-i18n="scanTitle">ກຳລັງສະແກນ FaceID...</h3>
+      <p class="biometric-scan-sub" data-i18n="scanSub">ກະລຸນາແນມເບິ່ງກ້ອງ ຫຼື ແຕະເຊັນເຊີເພື່ອຢືນຢັນຕົວຕົນ</p>
+
+      <div class="scan-progress-bar">
+        <div class="scan-progress-fill" id="scanProgressFill"></div>
+      </div>
+
+      <button type="button" class="btn-modal-cancel" id="btnCancelBiometric" data-i18n="btnCancel">ຍົກເລີກ</button>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- Application Script -->
+  <script src="home_login.js"></script>
+</body>
+</html>

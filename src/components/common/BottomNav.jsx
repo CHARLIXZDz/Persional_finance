@@ -1,0 +1,104 @@
+import React from 'react';
+import { Home, PieChart, Clock, Settings, Plus } from 'lucide-react';
+import { useFinance } from '../../context/FinanceContext';
+
+export const BottomNav = () => {
+  const { currentTab, setCurrentTab, setIsAddModalOpen, t } = useFinance();
+
+  const tabs = [
+    { id: 'dashboard', label: t('nav.home'), icon: Home },
+    { id: 'analytics', label: t('nav.analytics'), icon: PieChart },
+    // Center Action Button placeholder
+    { id: 'history', label: t('nav.history'), icon: Clock },
+    { id: 'settings', label: t('nav.settings'), icon: Settings },
+  ];
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 max-w-md mx-auto pointer-events-none px-4 pb-3">
+      {/* Docked Navigation Bar */}
+      <nav className="pointer-events-auto relative w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-2xl px-3 py-2 flex items-center justify-around">
+        
+        {/* Tab 1: Home */}
+        <button
+          onClick={() => setCurrentTab('dashboard')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 px-1 transition-all duration-200 active:scale-95 ${
+            currentTab === 'dashboard'
+              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+              : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+          }`}
+        >
+          <Home className="w-5 h-5 transition-transform" />
+          <span className="text-[10px] mt-1 font-medium leading-none">{t('nav.home')}</span>
+          {currentTab === 'dashboard' && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-0.5 animate-pulse" />
+          )}
+        </button>
+
+        {/* Tab 2: Analytics */}
+        <button
+          onClick={() => setCurrentTab('analytics')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 px-1 transition-all duration-200 active:scale-95 ${
+            currentTab === 'analytics'
+              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+              : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+          }`}
+        >
+          <PieChart className="w-5 h-5 transition-transform" />
+          <span className="text-[10px] mt-1 font-medium leading-none">{t('nav.analytics')}</span>
+          {currentTab === 'analytics' && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-0.5 animate-pulse" />
+          )}
+        </button>
+
+        {/* Center Floating Action Button (+) */}
+        <div className="flex-1 flex justify-center -mt-6">
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="group relative w-13 h-13 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-float-button hover:shadow-glow-emerald transition-all duration-300 active:scale-90 border-4 border-slate-100 dark:border-slate-950"
+            aria-label={t('nav.addTransaction')}
+            title={t('nav.addTransaction')}
+          >
+            <Plus className="w-6 h-6 transition-transform group-hover:rotate-90 duration-300" />
+            {/* Subtle ping pulse */}
+            <span className="absolute inset-0 rounded-full bg-emerald-400/20 animate-ping -z-10" />
+          </button>
+        </div>
+
+        {/* Tab 3: History */}
+        <button
+          onClick={() => setCurrentTab('history')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 px-1 transition-all duration-200 active:scale-95 ${
+            currentTab === 'history'
+              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+              : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+          }`}
+        >
+          <Clock className="w-5 h-5 transition-transform" />
+          <span className="text-[10px] mt-1 font-medium leading-none">{t('nav.history')}</span>
+          {currentTab === 'history' && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-0.5 animate-pulse" />
+          )}
+        </button>
+
+        {/* Tab 4: Settings */}
+        <button
+          onClick={() => setCurrentTab('settings')}
+          className={`flex flex-col items-center justify-center flex-1 py-1 px-1 transition-all duration-200 active:scale-95 ${
+            currentTab === 'settings'
+              ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+              : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+          }`}
+        >
+          <Settings className="w-5 h-5 transition-transform" />
+          <span className="text-[10px] mt-1 font-medium leading-none">{t('nav.settings')}</span>
+          {currentTab === 'settings' && (
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-0.5 animate-pulse" />
+          )}
+        </button>
+
+      </nav>
+    </div>
+  );
+};
+
+export default BottomNav;

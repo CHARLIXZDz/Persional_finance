@@ -143,18 +143,7 @@ export const SettingsView = () => {
   };
 
   return (
-    <div className="flex-1 px-5 pt-4 pb-36 space-y-5 animate-fade-in">
-      {/* Title */}
-      <div>
-        <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-          <span>{t('settings.title')}</span>
-          <SettingsIcon className="w-5 h-5 text-emerald-500" />
-        </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {t('settings.subtitle')}
-        </p>
-      </div>
-
+    <div className="flex-1 px-5 pt-4 pb-36 space-y-4 animate-fade-in">
       {/* User Profile Card with Avatar Photo Support */}
       <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-card flex items-center justify-between">
         <div className="flex items-center space-x-3.5 min-w-0">

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Header from '../common/Header';
 import HeroBalanceCard from '../common/HeroBalanceCard';
 import RecentTransactions from '../common/RecentTransactions';
@@ -10,8 +10,47 @@ import { ArrowUpRight, Sparkles, Target } from 'lucide-react';
 export const DashboardView = () => {
   const { transactions, formatCurrency, setCurrentTab, t, getCategoryName } = useFinance();
 
-  // Calculate top spending category for the widget
-  const expenseTransactions = transactions.filter((t) => t.type === 'expense');
+  const now = new Date();
+  const currentRealYear = now.getFullYear();
+  const currentRealMonth = now.getMonth();
+
+  const [selectedYear, setSelectedYear] = useState(currentRealYear);
+  const [selectedMonth, setSelectedMonth] = useState(currentRealMonth); // 0 - 11
+
+  const handlePrevMonth = () => {
+    if (selectedMonth === 0) {
+      setSelectedMonth(11);
+      setSelectedYear((prev) => prev - 1);
+    } else {
+      setSelectedMonth((prev) => prev - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 11) {
+      setSelectedMonth(0);
+      setSelectedYear((prev) => prev + 1);
+    } else {
+      setSelectedMonth((prev) => prev + 1);
+    }
+  };
+
+  const handleResetCurrentMonth = () => {
+    setSelectedYear(currentRealYear);
+    setSelectedMonth(currentRealMonth);
+  };
+
+  // Filter transactions strictly for the SELECTED month
+  const monthTransactions = (transactions || [])
+    .filter((tx) => {
+      if (!tx.date) return false;
+      const d = new Date(tx.date);
+      return d.getFullYear() === selectedYear && d.getMonth() === selectedMonth;
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Calculate top spending category for the SELECTED month
+  const expenseTransactions = monthTransactions.filter((t) => t.type === 'expense');
   const totalExpense = expenseTransactions.reduce((acc, t) => acc + t.amount, 0);
 
   const categoryTotals = {};
@@ -30,12 +69,18 @@ export const DashboardView = () => {
   const topCategoryPct = totalExpense > 0 ? Math.round((topCategoryAmount / totalExpense) * 100) : 0;
 
   return (
-    <div className="flex-1 pb-6 space-y-2 animate-fade-in">
+    <div className="flex-1 pb-32 space-y-2 animate-fade-in">
       {/* Header */}
       <Header />
 
       {/* Hero Balance Card */}
-      <HeroBalanceCard />
+      <HeroBalanceCard
+        selectedYear={selectedYear}
+        selectedMonth={selectedMonth}
+        onPrevMonth={handlePrevMonth}
+        onNextMonth={handleNextMonth}
+        onResetCurrentMonth={handleResetCurrentMonth}
+      />
 
       {/* Monthly Budget / Smart Insight Pill Widget */}
       {topCategoryObj && (
@@ -66,8 +111,12 @@ export const DashboardView = () => {
         </div>
       )}
 
-      {/* Recent Transactions List */}
-      <RecentTransactions />
+      {/* Recent Transactions List (Scoped strictly to selected month) */}
+      <RecentTransactions
+        transactions={monthTransactions}
+        selectedYear={selectedYear}
+        selectedMonth={selectedMonth}
+      />
     </div>
   );
 };

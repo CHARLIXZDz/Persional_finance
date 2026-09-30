@@ -1,20 +1,49 @@
-import React from 'react';
-import { Bell, Moon, Sun, Globe } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Moon, Sun, Cloud } from 'lucide-react';
 import { useFinance } from '../../context/FinanceContext';
-import { CURRENCIES } from '../../data/categories';
+import { FlagIcon } from './FlagIcon';
 
 export const Header = () => {
   const {
+    user,
     isDarkMode,
     setIsDarkMode,
-    currency,
-    setCurrency,
     language,
     setLanguage,
     languages,
     t,
     formatDateLocalized,
+    isCloudConnected,
+    avatarUrl,
   } = useFinance();
+
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest('#headerLangDropdownWrapper')) {
+        setIsLangDropdownOpen(false);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, []);
+
+  // Dynamic user details
+  const displayName = user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : 'User');
+  const initials =
+    user?.user_metadata?.initials ||
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() ||
+    displayName.slice(0, 2).toUpperCase() ||
+    'MD';
+  const plan = user?.user_metadata?.plan || (user?.email?.includes('alex') ? 'PRO' : 'FREE');
 
   // Format today's date localized
   const today = new Date();
@@ -31,9 +60,17 @@ export const Header = () => {
         <div className="relative">
           <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-indigo-600 p-[2px] shadow-sm">
             <div className="w-full h-full rounded-[14px] bg-white dark:bg-slate-900 flex items-center justify-center overflow-hidden">
-              <span className="font-bold text-sm bg-gradient-to-r from-emerald-600 to-indigo-600 bg-clip-text text-transparent">
-                EP
-              </span>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="font-bold text-sm bg-gradient-to-r from-emerald-600 to-indigo-600 bg-clip-text text-transparent">
+                  {initials}
+                </span>
+              )}
             </div>
           </div>
           <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900"></span>
@@ -44,62 +81,74 @@ export const Header = () => {
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 capitalize">
               {dateFormatted}
             </span>
-            <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">
-              {t('common.pro')}
+            <span
+              className={`inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-semibold ${
+                plan === 'PRO'
+                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50'
+              }`}
+            >
+              {plan}
             </span>
+            {isCloudConnected && (
+              <span title="Cloud Sync Active" className="inline-flex items-center space-x-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-500/20">
+                <Cloud className="w-2.5 h-2.5" />
+                <span>Cloud</span>
+              </span>
+            )}
           </div>
           <h1 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-            {t('header.greeting')}
+            {t('header.greeting', { name: displayName })}
           </h1>
         </div>
       </div>
 
-      {/* Header Actions: Quick Language & Currency Switcher, Theme */}
-      <div className="flex items-center space-x-1.5 sm:space-x-2">
-        {/* Language Quick Switcher */}
-        <div className="relative group">
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="text-xs font-bold appearance-none bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 rounded-xl px-2.5 py-1.5 pr-6 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer transition-all hover:border-emerald-400"
-            title={t('header.chooseLanguage')}
-            aria-label={t('header.chooseLanguage')}
+      {/* Header Actions: Language Dropdown (Flag only) + Theme Toggle */}
+      <div className="flex items-center space-x-2">
+        {/* Language Dropdown - Flag only like login page */}
+        <div className="relative" id="headerLangDropdownWrapper">
+          <button
+            type="button"
+            onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+            className="w-9 h-9 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 hover:border-emerald-500/50 flex items-center justify-center transition-all shadow-sm active:scale-95"
+            aria-label="Select Language"
+            title={languages[language]?.name || 'Language'}
           >
-            {Object.values(languages).map((lang) => (
-              <option key={lang.code} value={lang.code} className="dark:bg-slate-800 text-slate-900 dark:text-white">
-                {lang.flag} {lang.nativeName}
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-400 text-[10px]">
-            ▼
-          </div>
-        </div>
+            <FlagIcon code={language} className="w-5 h-3.5" rounded={true} />
+          </button>
 
-        {/* Currency Quick Pill */}
-        <div className="relative group">
-          <select
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            className="text-xs font-bold appearance-none bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 rounded-xl px-2.5 py-1.5 pr-6 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer transition-all hover:border-emerald-400"
-            title={t('header.chooseCurrency')}
-            aria-label={t('header.chooseCurrency')}
-          >
-            {Object.values(CURRENCIES).map((curr) => (
-              <option key={curr.code} value={curr.code} className="dark:bg-slate-800 text-slate-900 dark:text-white">
-                {curr.flag} {curr.code}
-              </option>
-            ))}
-          </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-slate-400 text-[10px]">
-            ▼
-          </div>
+          {/* Menu */}
+          {isLangDropdownOpen && (
+            <div className="absolute right-0 mt-2 w-44 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-1.5 z-50 animate-slide-up flex flex-col gap-1">
+              {Object.values(languages).map((lang) => (
+                <button
+                  key={lang.code}
+                  type="button"
+                  onClick={() => {
+                    setLanguage(lang.code);
+                    setIsLangDropdownOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition-colors ${
+                    language === lang.code
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 font-medium'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <FlagIcon code={lang.code} className="w-5 h-3.5" rounded={true} />
+                    <span className="text-xs font-semibold">{lang.nativeName}</span>
+                  </div>
+                  {language === lang.code && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Theme Toggle */}
         <button
           onClick={() => setIsDarkMode(!isDarkMode)}
-          className="w-8.5 h-8.5 rounded-xl flex items-center justify-center bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors shadow-sm active:scale-95 shrink-0"
+          className="w-9 h-9 rounded-xl flex items-center justify-center bg-white dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors shadow-sm active:scale-95 shrink-0"
           aria-label={t('header.toggleTheme')}
           title={t('header.toggleTheme')}
         >

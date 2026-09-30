@@ -27,6 +27,18 @@ export const HistoryView = () => {
   const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'expense' | 'income'
   const [selectedCategory, setSelectedCategory] = useState('all');
 
+  // Format time (HH:mm)
+  const formatTxTime = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  };
+
   // Filter transactions
   const filtered = transactions.filter((tx) => {
     // Search match
@@ -185,23 +197,23 @@ export const HistoryView = () => {
                       className="group relative flex items-center justify-between p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/90 shadow-sm hover:border-slate-300 dark:hover:border-slate-700 transition-all"
                     >
                       {/* Left: Icon & Details */}
-                      <div className="flex items-center space-x-3.5 min-w-0">
+                      <div className="flex items-center space-x-3.5 min-w-0 flex-1">
                         <div
                           className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${cat.bgColor}`}
                         >
                           <CategoryIcon iconName={cat.icon} className="w-5 h-5" />
                         </div>
 
-                        <div className="min-w-0 pr-2">
+                        <div className="min-w-0 pr-2 flex-1">
                           <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
                             {tx.title}
                           </p>
-                          <div className="flex items-center space-x-1.5 text-[11px] text-slate-400 mt-0.5">
-                            <span className="font-medium text-slate-600 dark:text-slate-300">
+                          <div className="flex items-center space-x-1.5 text-[11px] text-slate-400 mt-0.5 whitespace-nowrap overflow-hidden">
+                            <span className="font-medium text-slate-600 dark:text-slate-300 shrink-0">
                               {catName}
                             </span>
-                            <span>•</span>
-                            <span>{getPaymentMethodName(tx.paymentMethod)}</span>
+                            <span className="shrink-0">•</span>
+                            <span className="truncate">{getPaymentMethodName(tx.paymentMethod)}</span>
                           </div>
                           {tx.notes && (
                             <p className="text-[10px] text-slate-400 italic truncate mt-0.5">
@@ -211,11 +223,11 @@ export const HistoryView = () => {
                         </div>
                       </div>
 
-                      {/* Right: Amount & Delete Button */}
-                      <div className="flex items-center space-x-3 shrink-0">
-                        <div className="text-right">
+                      {/* Right: Amount & Time & Delete Button */}
+                      <div className="flex items-center space-x-2.5 shrink-0 pl-2">
+                        <div className="text-right flex flex-col items-end">
                           <div
-                            className={`text-sm font-bold tracking-tight ${
+                            className={`text-sm font-bold tracking-tight whitespace-nowrap ${
                               isIncome
                                 ? 'text-emerald-600 dark:text-emerald-400'
                                 : 'text-rose-600 dark:text-rose-400'
@@ -224,11 +236,16 @@ export const HistoryView = () => {
                             {isIncome ? '+ ' : '- '}
                             {formatCurrency(tx.amount)}
                           </div>
+                          {tx.date && formatTxTime(tx.date) && (
+                            <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mt-0.5 whitespace-nowrap">
+                              {formatTxTime(tx.date)}
+                            </span>
+                          )}
                         </div>
 
                         <button
                           onClick={() => deleteTransaction(tx.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all active:scale-95"
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all active:scale-95 shrink-0"
                           title={t('history.deleteTooltip')}
                         >
                           <Trash2 className="w-3.5 h-3.5" />

@@ -20,6 +20,17 @@
   }
 }
 
+@keyframes popoverCenter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -31,12 +42,107 @@
   }
 }
 
+@keyframes toastSlideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-24px) scale(0.94);
+  }
+  65% {
+    transform: translateY(3px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) translateY(16px);
+  }
+  65% {
+    transform: scale(1.02) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes shrinkWidth {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 12px rgba(244, 63, 94, 0);
+  }
+}
+
+@keyframes scanLaser {
+  0% { top: 5%; }
+  100% { top: 92%; }
+}
+
+@keyframes floatOrb {
+  0% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(35px) scale(1.08); }
+  100% { transform: translateY(-20px) scale(0.95); }
+}
+
+@keyframes shakeError {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
 .animate-slide-up {
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.animate-popover-center {
+  animation: popoverCenter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-toast {
+  animation: toastSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-modal-pop {
+  animation: modalPop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+.animate-scan-laser {
+  animation: scanLaser 1.6s ease-in-out infinite alternate;
+}
+
+.animate-float-orb {
+  animation: floatOrb 18s ease-in-out infinite alternate;
+}
+
+.animate-shake {
+  animation: shakeError 0.4s ease;
+}
+
+/* Disable native Windows Edge/Chrome password reveal to avoid duplicate eye buttons */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
 }
 
 /* Hide scrollbar for tabs and horizontal scroll areas */
@@ -47,3 +153,4 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+

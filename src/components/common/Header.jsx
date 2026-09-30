@@ -54,7 +54,7 @@ export const Header = () => {
   });
 
   return (
-    <header className="shrink-0 z-30 bg-white dark:bg-[#0A0F1D] border-b border-slate-200/60 dark:border-slate-800/80 px-5 pt-[max(2rem,calc(env(safe-area-inset-top,0px)+0.5rem))] sm:pt-4 pb-3 flex items-center justify-between transition-colors shadow-xs">
+    <header className="shrink-0 z-30 bg-white dark:bg-[#0A0F1D] border-b border-slate-200/60 dark:border-slate-800/80 px-5 pt-[max(0.75rem,calc(env(safe-area-inset-top,0px)+0.25rem))] sm:pt-3 pb-2.5 flex items-center justify-between transition-colors shadow-xs">
       {/* User Greeting & Profile */}
       <div className="flex items-center space-x-3">
         <div className="relative">

@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    background-color: #0A0F1D;
+  }
+  html:not(.dark) {
+    background-color: #F1F5F9;
+  }
   html, body, #root {
     height: 100%;
     margin: 0;

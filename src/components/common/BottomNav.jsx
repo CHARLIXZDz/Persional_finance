@@ -55,11 +55,13 @@ export const BottomNav = () => {
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-200 active:scale-90"
+            className="group relative w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 active:scale-90"
             aria-label={t('nav.addTransaction')}
             title={t('nav.addTransaction')}
           >
-            <Plus className="w-5 h-5 transition-transform group-hover:rotate-90 duration-300 stroke-[2.5]" />
+            <Plus className="w-5 h-5 transition-transform duration-300 group-hover:rotate-90 group-active:rotate-90 stroke-[2.5]" />
+            {/* Subtle pulse animation */}
+            <span className="absolute inset-0 rounded-2xl bg-emerald-400/20 animate-ping -z-10 pointer-events-none" />
           </button>
         </div>
 

@@ -9,6 +9,8 @@ export const AuthView = () => {
     signIn,
     signInDemo,
     signUp,
+    resetPassword,
+    signInWithGoogle,
     language,
     setLanguage,
     languages,
@@ -33,6 +35,7 @@ export const AuthView = () => {
 
   // Status & Errors
   const [isLoading, setIsLoading] = useState(false);
+  const [isForgotLoading, setIsForgotLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
 
   // Dropdowns & Modals
@@ -211,24 +214,76 @@ export const AuthView = () => {
   };
 
   // Handle Forgot Password
-  const handleForgotSubmit = (e) => {
+  const handleForgotSubmit = async (e) => {
     e.preventDefault();
-    if (!forgotEmail.trim()) return;
-    setIsForgotModalOpen(false);
-    showToast({
-      type: 'success',
-      title: getAuthText('modalForgotTitle'),
-      message: getAuthText('toastResetSent', { email: forgotEmail }),
-    });
+    const targetEmail = forgotEmail.trim();
+    if (!targetEmail) return;
+
+    setIsForgotLoading(true);
+    try {
+      const res = await resetPassword(targetEmail);
+      if (!res.success) {
+        showToast({
+          type: 'error',
+          title: getAuthText('modalForgotTitle'),
+          message: res.error || 'Failed to send password reset email',
+        });
+      } else {
+        setIsForgotModalOpen(false);
+        showToast({
+          type: 'success',
+          title: getAuthText('modalForgotTitle'),
+          message: getAuthText('toastResetSent', { email: targetEmail }) || `Password reset link sent to ${targetEmail}`,
+        });
+      }
+    } catch (err) {
+      showToast({
+        type: 'error',
+        title: 'Error',
+        message: err.message,
+      });
+    } finally {
+      setIsForgotLoading(false);
+    }
   };
 
-  // Social Login placeholder
-  const handleSocialClick = (provider) => {
-    showToast({
-      type: 'info',
-      title: provider,
-      message: getAuthText('toastSocialNotImplemented', { provider }),
-    });
+  // Social Login: Google
+  const handleSocialClick = async (provider) => {
+    if (provider === 'Google') {
+      setIsLoading(true);
+      try {
+        const res = await signInWithGoogle();
+        if (!res.success) {
+          const errMsg = res.error || '';
+          if (errMsg.includes('provider is not enabled') || errMsg.includes('Unsupported provider')) {
+            showToast({
+              type: 'info',
+              title: 'Google OAuth',
+              message:
+                language === 'vi'
+                  ? 'Google OAuth chưa kích hoạt trong Supabase Console. Bạn hãy đăng nhập hoặc tạo tài khoản trực tiếp bằng Gmail ở biểu mẫu bên dưới nhé!'
+                  : language === 'lo'
+                  ? 'ລະບົບ Google OAuth ຍັງບໍ່ໄດ້ເປີດໃຊ້ໃນ Supabase Console. ທ່ານສາມາດເຂົ້າສູ່ລະບົບ ຫຼື ສ້າງບັນຊີດ້ວຍ Gmail ໃນແບບຟອມດ້ານລຸ່ມໄດ້ເລີຍ!'
+                  : 'Google OAuth is not enabled in Supabase Console. Please sign in or register with your Gmail in the form below!',
+            });
+          } else {
+            showToast({
+              type: 'error',
+              title: 'Google Sign In',
+              message: errMsg,
+            });
+          }
+        }
+      } catch (err) {
+        showToast({
+          type: 'error',
+          title: 'Google Sign In',
+          message: err.message,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
   };
 
   const currentLangObj = languages[language] || languages['lo'];
@@ -385,7 +440,7 @@ export const AuthView = () => {
                     setEmail(e.target.value);
                     if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' });
                   }}
-                  placeholder="alex@moneydairy.app"
+                  placeholder="example@gmail.com"
                   autoComplete="email"
                   className={`w-full pl-10 pr-4 py-3 bg-slate-100/90 dark:bg-slate-900/80 border ${
                     fieldErrors.email
@@ -533,7 +588,7 @@ export const AuthView = () => {
                     setEmail(e.target.value);
                     if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' });
                   }}
-                  placeholder="alex@moneydairy.app"
+                  placeholder="example@gmail.com"
                   autoComplete="email"
                   className={`w-full pl-10 pr-4 py-2.5 bg-slate-100/90 dark:bg-slate-900/80 border ${
                     fieldErrors.email
@@ -713,36 +768,38 @@ export const AuthView = () => {
           <div className="flex-1 h-px bg-slate-200 dark:bg-white/[0.08]" />
         </div>
 
-        {/* 5. BIOMETRIC FACEID / FINGERPRINT BUTTON */}
-        <button
-          type="button"
-          onClick={startBiometricScan}
-          className="w-full mb-3 p-3 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-emerald-500/10 hover:from-indigo-500/20 hover:to-emerald-500/20 border border-indigo-500/30 hover:border-indigo-500/60 transition-all text-left flex items-center gap-3.5 group shadow-sm active:scale-[0.99]"
-        >
-          {/* Biometric Reticle Box */}
-          <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-indigo-500/30 flex items-center justify-center text-indigo-500 group-hover:scale-105 transition-transform flex-shrink-0">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-              <path d="M9 9h.01M15 9h.01M9 15c1 1 2 1.5 3 1.5s2-.5 3-1.5" />
-            </svg>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-slate-900 dark:text-white">
-              {getAuthText('biometricTitle')}
-            </span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">
-              {getAuthText('biometricSub')}
-            </span>
-          </div>
-        </button>
+        {/* 5. BIOMETRIC FACEID / FINGERPRINT BUTTON (Sign In only) */}
+        {tab === 'signIn' && (
+          <button
+            type="button"
+            onClick={startBiometricScan}
+            className="w-full mb-3 p-3 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-emerald-500/10 hover:from-indigo-500/20 hover:to-emerald-500/20 border border-indigo-500/30 hover:border-indigo-500/60 transition-all text-left flex items-center gap-3.5 group shadow-sm active:scale-[0.99]"
+          >
+            {/* Biometric Reticle Box */}
+            <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-indigo-500/30 flex items-center justify-center text-indigo-500 group-hover:scale-105 transition-transform flex-shrink-0">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                <path d="M9 9h.01M15 9h.01M9 15c1 1 2 1.5 3 1.5s2-.5 3-1.5" />
+              </svg>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-slate-900 dark:text-white">
+                {getAuthText('biometricTitle')}
+              </span>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                {getAuthText('biometricSub')}
+              </span>
+            </div>
+          </button>
+        )}
 
-        {/* 6. SOCIAL BUTTONS (Google & Apple) */}
-        <div className="grid grid-cols-2 gap-2.5">
+        {/* 6. SOCIAL BUTTON (Google) */}
+        <div>
           {/* Google */}
           <button
             type="button"
             onClick={() => handleSocialClick('Google')}
-            className="py-2.5 px-3 rounded-2xl bg-slate-100/90 dark:bg-slate-900/80 border border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 shadow-sm active:scale-95"
+            className="w-full py-2.5 px-3 rounded-2xl bg-slate-100/90 dark:bg-slate-900/80 border border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 shadow-sm active:scale-95"
           >
             <svg viewBox="0 0 24 24" width="16" height="16">
               <path
@@ -763,18 +820,6 @@ export const AuthView = () => {
               />
             </svg>
             <span>Google</span>
-          </button>
-
-          {/* Apple */}
-          <button
-            type="button"
-            onClick={() => handleSocialClick('Apple')}
-            className="py-2.5 px-3 rounded-2xl bg-slate-100/90 dark:bg-slate-900/80 border border-slate-200 dark:border-white/[0.08] hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5 shadow-sm active:scale-95"
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.65-.8 1.1-1.92.97-3.04-.96.04-2.11.64-2.78 1.43-.59.68-1.11 1.79-.97 2.88 1.07.08 2.14-.54 2.78-1.27z" />
-            </svg>
-            <span>Apple</span>
           </button>
         </div>
       </main>
@@ -851,7 +896,7 @@ export const AuthView = () => {
                     required
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="alex@moneydairy.app"
+                    placeholder="example@gmail.com"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -867,9 +912,14 @@ export const AuthView = () => {
                 </button>
                 <button
                   type="submit"
-                  className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-xs shadow-glow-emerald hover:from-emerald-400 hover:to-emerald-500 transition-all"
+                  disabled={isForgotLoading || !forgotEmail.trim()}
+                  className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold text-xs shadow-glow-emerald hover:from-emerald-400 hover:to-emerald-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
                 >
-                  {getAuthText('btnSendReset')}
+                  {isForgotLoading ? (
+                    <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span>{getAuthText('btnSendReset')}</span>
+                  )}
                 </button>
               </div>
             </form>

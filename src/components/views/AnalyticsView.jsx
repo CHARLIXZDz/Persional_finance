@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { CATEGORIES } from '../../data/categories';
 import CategoryIcon from '../common/CategoryIcon';
+import BudgetModal from '../common/BudgetModal';
 import {
   PieChart as ChartIcon,
   TrendingDown,
@@ -19,11 +20,16 @@ import {
   AlertTriangle,
   Wallet,
   Clock,
+  Target,
+  SlidersHorizontal,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 
 export const AnalyticsView = () => {
   const {
     transactions,
+    budgets,
     formatCurrency,
     formatDateLocalized,
     setIsAddModalOpen,
@@ -37,6 +43,7 @@ export const AnalyticsView = () => {
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth()); // 0-11
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [breakdownType, setBreakdownType] = useState('expense'); // 'expense' | 'income'
 
   // Month navigation
@@ -122,10 +129,30 @@ export const AnalyticsView = () => {
     })
     .sort((a, b) => b.amount - a.amount);
 
-  // Nhóm chi tiêu nhiều nhất trong tháng
-  const topExpenseCategory = categoryBreakdown.length > 0 && breakdownType === 'expense'
-    ? categoryBreakdown[0]
-    : null;
+  // Nhóm chi tiêu nhiều nhất trong tháng (Cố định theo tháng, không bị nhảy layout khi chuyển tab Thu/Chi)
+  const topExpenseCategory = (() => {
+    if (expenseTransactions.length === 0 || monthlyExpense === 0) return null;
+    const expMap = {};
+    expenseTransactions.forEach((tx) => {
+      expMap[tx.category] = (expMap[tx.category] || 0) + tx.amount;
+    });
+    const sorted = Object.entries(expMap).sort((a, b) => b[1] - a[1]);
+    if (!sorted.length) return null;
+    const [topCatId, topAmount] = sorted[0];
+    const catObj = CATEGORIES[topCatId] || {
+      name: 'Other',
+      icon: 'HelpCircle',
+      bgColor: 'bg-slate-500/10 text-slate-500',
+    };
+    return {
+      id: topCatId,
+      name: getCategoryName(topCatId),
+      icon: catObj.icon,
+      bgColor: catObj.bgColor,
+      amount: topAmount,
+      percentage: (topAmount / monthlyExpense) * 100,
+    };
+  })();
 
   // Colors for Donut chart
   const DONUT_COLORS = [
@@ -140,7 +167,6 @@ export const AnalyticsView = () => {
   ];
 
   const circumference = 2 * Math.PI * 40;
-  let strokeOffsetAccumulator = 0;
 
   // Available selectable years
   const availableYears = [
@@ -158,6 +184,34 @@ export const AnalyticsView = () => {
     year: 'numeric',
   });
 
+  // Budget calculations for selected month ('YYYY-MM')
+  const currentMonthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+  const activeMonthlyBudgets = (budgets && budgets[currentMonthKey]) || {};
+  const budgetedCategoryIds = Object.keys(activeMonthlyBudgets);
+  const totalBudgetAmount = budgetedCategoryIds.reduce(
+    (sum, catId) => sum + (Number(activeMonthlyBudgets[catId]) || 0),
+    0
+  );
+  const hasBudgets = budgetedCategoryIds.length > 0 && totalBudgetAmount > 0;
+
+  // Spent per category for selected month
+  const spentPerCategory = {};
+  expenseTransactions.forEach((tx) => {
+    spentPerCategory[tx.category] = (spentPerCategory[tx.category] || 0) + tx.amount;
+  });
+
+  const totalBudgetedSpent = budgetedCategoryIds.reduce((sum, catId) => {
+    return sum + (spentPerCategory[catId] || 0);
+  }, 0);
+
+  const totalBudgetRemaining = totalBudgetAmount - totalBudgetedSpent;
+  const overallBudgetPct = totalBudgetAmount > 0
+    ? Math.round((totalBudgetedSpent / totalBudgetAmount) * 100)
+    : 0;
+
+  const isBudgetOver = totalBudgetRemaining < 0;
+  const isBudgetNear = overallBudgetPct >= 75 && !isBudgetOver;
+
   return (
     <div className="flex-1 px-5 pt-6 pb-28 space-y-4 animate-fade-in">
       {/* Title */}
@@ -174,31 +228,49 @@ export const AnalyticsView = () => {
       </div>
 
       {/* Month & Year Navigation Control */}
-      <div className="p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between">
+      <div className="p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center justify-between relative">
         <button
           type="button"
           onClick={handlePrevMonth}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95"
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95 cursor-pointer"
           title="Previous Month"
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
 
         {/* Center Month Dropdown Button */}
-        <div className="relative">
+        <div>
           <button
             type="button"
             onClick={() => setIsMonthPickerOpen(!isMonthPickerOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition-all shadow-inner active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 text-xs font-bold text-slate-900 dark:text-white transition-all shadow-inner active:scale-95 cursor-pointer"
           >
             <Calendar className="w-3.5 h-3.5 text-emerald-500" />
             <span className="capitalize">{formattedMonthLabel}</span>
             <span className="text-[10px] text-slate-400">▾</span>
           </button>
+        </div>
 
-          {/* Month & Year Popover Picker */}
-          {isMonthPickerOpen && (
-            <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-64 p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 animate-slide-up space-y-2">
+        <button
+          type="button"
+          onClick={handleNextMonth}
+          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95 cursor-pointer"
+          title="Next Month"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+
+        {/* Month & Year Popover Picker */}
+        {isMonthPickerOpen && (
+          <>
+            {/* Backdrop for click outside dismiss */}
+            <div
+              className="fixed inset-0 z-40 bg-black/20 dark:bg-black/40 backdrop-blur-[1px]"
+              onClick={() => setIsMonthPickerOpen(false)}
+            />
+
+            {/* Centered Popover */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[calc(100%-1rem)] max-w-[290px] p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl z-50 animate-popover-center space-y-2.5">
               <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   {t('analytics.selectMonthYear')}
@@ -206,7 +278,7 @@ export const AnalyticsView = () => {
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg px-2 py-1 border border-slate-200 dark:border-slate-700 focus:outline-none"
+                  className="text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg px-2.5 py-1 border border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer"
                 >
                   {availableYears.map((yr) => (
                     <option key={yr} value={yr}>
@@ -231,7 +303,7 @@ export const AnalyticsView = () => {
                         setSelectedMonth(m);
                         setIsMonthPickerOpen(false);
                       }}
-                      className={`py-1.5 rounded-xl text-xs font-bold capitalize transition-all ${
+                      className={`py-2 rounded-xl text-xs font-bold capitalize transition-all cursor-pointer ${
                         isCurrent
                           ? 'bg-emerald-500 text-white shadow-sm ring-2 ring-emerald-500/40'
                           : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -247,23 +319,14 @@ export const AnalyticsView = () => {
                 <button
                   type="button"
                   onClick={handleSelectCurrentMonth}
-                  className="w-full mt-2 py-1.5 rounded-xl text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 transition-colors"
+                  className="w-full mt-1.5 py-2 rounded-xl text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors cursor-pointer"
                 >
                   {t('analytics.thisMonth')} ({now.getFullYear()})
                 </button>
               )}
             </div>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={handleNextMonth}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95"
-          title="Next Month"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </button>
+          </>
+        )}
       </div>
 
       {/* 1. THẺ ĐÁNH GIÁ TÀI CHÍNH CUỐI THÁNG (ÂM HAY DƯƠNG, TIẾT KIỆM ĐƯỢC BAO NHIÊU) */}
@@ -272,7 +335,7 @@ export const AnalyticsView = () => {
           isSurplus
             ? 'bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-transparent border-emerald-500/30'
             : isDeficit
-            ? 'bg-gradient-to-br from-rose-500/15 via-amber-500/10 to-transparent border-rose-500/30'
+            ? 'bg-gradient-to-br from-rose-500/[0.12] via-rose-500/[0.05] to-transparent border-rose-500/30'
             : isBalanced
             ? 'bg-gradient-to-br from-blue-500/15 via-indigo-500/10 to-transparent border-blue-500/30'
             : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800'
@@ -288,8 +351,8 @@ export const AnalyticsView = () => {
               </span>
             )}
             {isDeficit && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-500 text-white shadow-sm">
-                <AlertTriangle className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 dark:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                <AlertTriangle className="w-3 h-3 text-rose-500 dark:text-rose-400" />
                 <span>{t('analytics.statusDeficit')}</span>
               </span>
             )}
@@ -371,7 +434,7 @@ export const AnalyticsView = () => {
             </p>
           </div>
           <span className="text-[11px] text-slate-400 mt-2 font-medium">
-            {incomeTransactions.length} khoản thu
+            {t('analytics.incomeCount', { count: incomeTransactions.length })}
           </span>
         </div>
 
@@ -379,7 +442,7 @@ export const AnalyticsView = () => {
         <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center space-x-2 text-xs font-bold text-rose-600 dark:text-rose-400 mb-1">
-              <div className="w-6 h-6 rounded-lg bg-rose-500/10 flex items-center justify-center">
+              <div className="w-6 h-6 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500">
                 <ArrowUpRight className="w-3.5 h-3.5" />
               </div>
               <span className="truncate">{t('analytics.totalOut')}</span>
@@ -389,7 +452,7 @@ export const AnalyticsView = () => {
             </p>
           </div>
           <span className="text-[11px] text-slate-400 mt-2 font-medium">
-            {expenseTransactions.length} khoản chi
+            {t('analytics.expenseCount', { count: expenseTransactions.length })}
           </span>
         </div>
       </div>
@@ -399,10 +462,10 @@ export const AnalyticsView = () => {
         <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 space-y-2">
           <div className="flex items-center justify-between text-[11px] font-bold">
             <span className="text-emerald-600 dark:text-emerald-400">
-              Thu: {monthlyIncome + monthlyExpense > 0 ? ((monthlyIncome / (monthlyIncome + monthlyExpense)) * 100).toFixed(0) : 0}%
+              {t('analytics.incomeShort')}: {monthlyIncome + monthlyExpense > 0 ? ((monthlyIncome / (monthlyIncome + monthlyExpense)) * 100).toFixed(0) : 0}%
             </span>
             <span className="text-rose-600 dark:text-rose-400">
-              Chi: {monthlyIncome + monthlyExpense > 0 ? ((monthlyExpense / (monthlyIncome + monthlyExpense)) * 100).toFixed(0) : 0}%
+              {t('analytics.expenseShort')}: {monthlyIncome + monthlyExpense > 0 ? ((monthlyExpense / (monthlyIncome + monthlyExpense)) * 100).toFixed(0) : 0}%
             </span>
           </div>
           <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
@@ -429,6 +492,211 @@ export const AnalyticsView = () => {
           </div>
         </div>
       )}
+
+      {/* 2.5 GIỚI HẠN NGÂN SÁCH THÁNG (MONTHLY BUDGET LIMITS BY CATEGORY) */}
+      <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <Target className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>{t('budgets.title')}</span>
+                {hasBudgets && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 ${
+                      isBudgetOver
+                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                        : isBudgetNear
+                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                        : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    {isBudgetOver ? (
+                      <>
+                        <AlertCircle className="w-3 h-3" />
+                        {t('budgets.statusDanger')}
+                      </>
+                    ) : isBudgetNear ? (
+                      <>
+                        <AlertCircle className="w-3 h-3" />
+                        {t('budgets.statusWarning')}
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3 h-3" />
+                        {t('budgets.statusSafe')}
+                      </>
+                    )}
+                  </span>
+                )}
+              </h3>
+              <p className="text-[10px] text-slate-400">
+                {t('budgets.subtitle', { month: formattedMonthLabel })}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsBudgetModalOpen(true)}
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors active:scale-95 cursor-pointer"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-500" />
+            <span>{t(hasBudgets ? 'budgets.editBudget' : 'budgets.setBudget')}</span>
+          </button>
+        </div>
+
+        {hasBudgets ? (
+          <div className="space-y-3">
+            {/* Overall Progress & Summary */}
+            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 dark:text-slate-400 font-medium">
+                  {t('budgets.spent')}:{' '}
+                  <b className="text-slate-900 dark:text-white font-bold">
+                    {formatCurrency(totalBudgetedSpent)}
+                  </b>
+                </span>
+                <span className="text-slate-500 dark:text-slate-400 font-medium">
+                  {t('budgets.totalBudget')}:{' '}
+                  <b className="text-slate-900 dark:text-white font-bold">
+                    {formatCurrency(totalBudgetAmount)}
+                  </b>
+                </span>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="h-2 w-full bg-slate-200/80 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 rounded-full ${
+                    isBudgetOver
+                      ? 'bg-rose-500'
+                      : isBudgetNear
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${Math.min(overallBudgetPct, 100)}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] pt-0.5">
+                <span className="font-semibold text-slate-500 dark:text-slate-400">
+                  {overallBudgetPct}%
+                </span>
+                <span
+                  className={`font-bold ${
+                    isBudgetOver
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : 'text-emerald-600 dark:text-emerald-400'
+                  }`}
+                >
+                  {isBudgetOver
+                    ? `${t('budgets.overBudget')}: ${formatCurrency(Math.abs(totalBudgetRemaining))}`
+                    : `${t('budgets.remaining')}: ${formatCurrency(totalBudgetRemaining)}`}
+                </span>
+              </div>
+            </div>
+
+            {/* Category Breakdown Progress */}
+            <div className="space-y-2 pt-1">
+              {budgetedCategoryIds.map((catId) => {
+                const cat = CATEGORIES[catId] || {
+                  id: catId,
+                  name: catId,
+                  icon: 'Tag',
+                  bgColor: 'bg-slate-500/10 text-slate-500',
+                };
+                const catBudget = Number(activeMonthlyBudgets[catId]) || 0;
+                const catSpent = spentPerCategory[catId] || 0;
+                const catPct = catBudget > 0 ? Math.round((catSpent / catBudget) * 100) : 0;
+                const catRemaining = catBudget - catSpent;
+                const catIsOver = catRemaining < 0;
+
+                return (
+                  <div
+                    key={catId}
+                    className="p-2.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 flex flex-col space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 min-w-0">
+                        <div
+                          className={`w-7 h-7 rounded-xl flex items-center justify-center ${cat.bgColor} shrink-0`}
+                        >
+                          <CategoryIcon iconName={cat.icon} className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {getCategoryName(catId)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          {formatCurrency(catSpent)}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {' '}
+                          / {formatCurrency(catBudget)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-1 h-1.5 bg-slate-200/80 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-300 rounded-full ${
+                            catIsOver
+                              ? 'bg-rose-500'
+                              : catPct >= 75
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(catPct, 100)}%` }}
+                        />
+                      </div>
+                      <span
+                        className={`text-[10px] font-extrabold w-10 text-right ${
+                          catIsOver
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : catPct >= 75
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-slate-500 dark:text-slate-400'
+                        }`}
+                      >
+                        {catPct}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="py-5 px-3 rounded-2xl bg-slate-50/60 dark:bg-slate-800/30 border border-dashed border-slate-200 dark:border-slate-800 text-center flex flex-col items-center justify-center space-y-2">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <Target className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-900 dark:text-white">
+                {t('budgets.emptyTitle', { month: formattedMonthLabel })}
+              </p>
+              <p className="text-[11px] text-slate-400 max-w-xs mx-auto mt-0.5 leading-relaxed">
+                {t('budgets.emptyDesc')}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsBudgetModalOpen(true)}
+              className="mt-1 px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+            >
+              {t('budgets.setNow')}
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* 3. NHÓM TIÊU NHIỀU NHẤT TRONG THÁNG (TOP SPENDING GROUP SPOTLIGHT) */}
       {topExpenseCategory && (
@@ -468,29 +736,31 @@ export const AnalyticsView = () => {
           <button
             type="button"
             onClick={() => setBreakdownType('expense')}
-            className={`py-2 text-xs font-bold rounded-xl transition-all ${
+            className={`flex items-center justify-center space-x-1.5 py-2.5 text-xs font-bold rounded-xl border transition-colors duration-200 select-none cursor-pointer ${
               breakdownType === 'expense'
-                ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-sm border border-slate-200/80 dark:border-slate-700'
-                : 'text-slate-600 dark:text-slate-400'
+                ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 border-slate-200/80 dark:border-slate-700 shadow-sm'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
-            {t('analytics.expensesBreakdown')}
+            <TrendingDown className={`w-3.5 h-3.5 ${breakdownType === 'expense' ? 'text-rose-500' : 'text-slate-400'}`} />
+            <span>{t('analytics.expensesBreakdown')}</span>
           </button>
           <button
             type="button"
             onClick={() => setBreakdownType('income')}
-            className={`py-2 text-xs font-bold rounded-xl transition-all ${
+            className={`flex items-center justify-center space-x-1.5 py-2.5 text-xs font-bold rounded-xl border transition-colors duration-200 select-none cursor-pointer ${
               breakdownType === 'income'
-                ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/80 dark:border-slate-700'
-                : 'text-slate-600 dark:text-slate-400'
+                ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-slate-200/80 dark:border-slate-700 shadow-sm'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
-            {t('analytics.incomeBreakdown')}
+            <TrendingUp className={`w-3.5 h-3.5 ${breakdownType === 'income' ? 'text-emerald-500' : 'text-slate-400'}`} />
+            <span>{t('analytics.incomeBreakdown')}</span>
           </button>
         </div>
 
         {/* Visual Donut Chart Card */}
-        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-card flex flex-col items-center">
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-card flex flex-col items-center justify-center min-h-[230px]">
           {categoryBreakdown.length === 0 ? (
             <div className="py-6 text-center space-y-1">
               <p className="text-xs text-slate-400 font-medium">
@@ -499,10 +769,10 @@ export const AnalyticsView = () => {
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(true)}
-                className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-emerald-500 hover:underline"
+                className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-emerald-500 hover:underline cursor-pointer"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
-                <span>Thêm giao dịch cho tháng này</span>
+                <span>{t('analytics.addTxForMonth')}</span>
               </button>
             </div>
           ) : (
@@ -517,28 +787,31 @@ export const AnalyticsView = () => {
                   className="text-slate-100 dark:text-slate-800"
                   fill="transparent"
                 />
-                {categoryBreakdown.map((cat, idx) => {
-                  const strokeDasharray = `${(cat.percentage / 100) * circumference} ${circumference}`;
-                  const strokeDashoffset = -strokeOffsetAccumulator;
-                  strokeOffsetAccumulator += (cat.percentage / 100) * circumference;
-                  const strokeColor = DONUT_COLORS[idx % DONUT_COLORS.length];
+                {(() => {
+                  let offsetAccumulator = 0;
+                  return categoryBreakdown.map((cat, idx) => {
+                    const strokeDasharray = `${(cat.percentage / 100) * circumference} ${circumference}`;
+                    const strokeDashoffset = -offsetAccumulator;
+                    offsetAccumulator += (cat.percentage / 100) * circumference;
+                    const strokeColor = DONUT_COLORS[idx % DONUT_COLORS.length];
 
-                  return (
-                    <circle
-                      key={cat.id}
-                      cx="50"
-                      cy="50"
-                      r="40"
-                      stroke={strokeColor}
-                      strokeWidth="12"
-                      strokeDasharray={strokeDasharray}
-                      strokeDashoffset={strokeDashoffset}
-                      strokeLinecap="round"
-                      fill="transparent"
-                      className="transition-all duration-700 ease-out"
-                    />
-                  );
-                })}
+                    return (
+                      <circle
+                        key={`${breakdownType}-${cat.id}`}
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        stroke={strokeColor}
+                        strokeWidth="12"
+                        strokeDasharray={strokeDasharray}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        fill="transparent"
+                        className="transition-all duration-500 ease-out"
+                      />
+                    );
+                  });
+                })()}
               </svg>
               <div className="absolute flex flex-col items-center justify-center text-center">
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -605,78 +878,16 @@ export const AnalyticsView = () => {
         )}
       </div>
 
-      {/* 5. DANH SÁCH GIAO DỊCH THÁNG NÀY (TRANSACTIONS IN THIS MONTH) */}
-      <div className="space-y-2 pt-2">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-emerald-500" />
-            <span>{t('analytics.monthTransactions')}</span>
-          </h3>
-          <button
-            type="button"
-            onClick={() => setCurrentTab('history')}
-            className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
-          >
-            {t('common.viewAll')}
-          </button>
-        </div>
 
-        {monthlyTransactions.length === 0 ? (
-          <div className="py-8 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800">
-            <p className="text-xs text-slate-400 font-medium">
-              Chưa có giao dịch nào trong tháng {selectedMonth + 1}/{selectedYear}.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {monthlyTransactions.slice(0, 5).map((tx) => {
-              const cat = CATEGORIES[tx.category] || {
-                name: 'Other',
-                icon: 'HelpCircle',
-                bgColor: 'bg-slate-500/10 text-slate-500',
-              };
-              const isIncome = tx.type === 'income';
-              const txDate = new Date(tx.date);
 
-              return (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 shadow-sm"
-                >
-                  <div className="flex items-center space-x-3 min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-xl flex items-center justify-center ${cat.bgColor} shrink-0`}
-                    >
-                      <CategoryIcon iconName={cat.icon} className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 pr-2">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {tx.title}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        {formatDateLocalized(txDate, { month: 'short', day: 'numeric' })} • {getPaymentMethodName(tx.paymentMethod)}
-                      </p>
-                    </div>
-                  </div>
 
-                  <div className="text-right shrink-0">
-                    <span
-                      className={`text-xs font-bold ${
-                        isIncome
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-rose-600 dark:text-rose-400'
-                      }`}
-                    >
-                      {isIncome ? '+ ' : '- '}
-                      {formatCurrency(tx.amount)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {/* Budget Limit Setup Modal */}
+      <BudgetModal
+        isOpen={isBudgetModalOpen}
+        onClose={() => setIsBudgetModalOpen(false)}
+        year={selectedYear}
+        month={selectedMonth}
+      />
     </div>
   );
 };

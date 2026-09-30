@@ -7,10 +7,12 @@ import SettingsView from './components/views/SettingsView';
 import AuthView from './components/views/AuthView';
 import BottomNav from './components/common/BottomNav';
 import AddTransactionModal from './components/common/AddTransactionModal';
+import ReportsView from './components/views/ReportsView';
 import ToastNotification from './components/common/ToastNotification';
+import ResetPasswordModal from './components/common/ResetPasswordModal';
 
 const AppContent = () => {
-  const { currentTab, user, isAuthLoading } = useFinance();
+  const { currentTab, setCurrentTab, user, isAuthLoading, language } = useFinance();
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-[#070B14] flex flex-col justify-center items-center sm:py-6 relative overflow-hidden transition-colors duration-300">
@@ -34,11 +36,20 @@ const AppContent = () => {
         {/* Modern Toast Notification Alert */}
         <ToastNotification />
 
+        {/* Reset Password Modal (Shown upon clicking recovery link in email) */}
+        <ResetPasswordModal />
+
         {/* Loading Session */}
         {isAuthLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center space-y-3">
-            <span className="w-9 h-9 border-3 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-            <p className="text-xs text-slate-400 font-semibold">ກຳລັງກວດສອບບັນຊີ...</p>
+            <span className="w-9 h-9 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+            <p className="text-xs text-slate-400 font-semibold">
+              {language === 'lo'
+                ? 'ກຳລັງກວດສອບບັນຊີ...'
+                : language === 'vi'
+                ? 'Đang xác thực tài khoản...'
+                : 'Checking account session...'}
+            </p>
           </div>
         ) : !user ? (
           /* Authentication Screen */
@@ -53,6 +64,7 @@ const AppContent = () => {
               {currentTab === 'analytics' && <AnalyticsView />}
               {currentTab === 'history' && <HistoryView />}
               {currentTab === 'settings' && <SettingsView />}
+              {currentTab === 'reports' && <ReportsView onBack={() => setCurrentTab('settings')} />}
             </main>
 
             {/* Docked Bottom Navigation */}

@@ -48,15 +48,60 @@ export const FinanceProvider = ({ children }) => {
 
   // Add Transaction Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Financial Report view alias
+  const isReportModalOpen = currentTab === 'reports';
+  const setIsReportModalOpen = (open) => setCurrentTab(open ? 'reports' : 'settings');
 
   // Cloud status state
   const [isCloudConnected, setIsCloudConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Supabase Auth State
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // Password Recovery Flow state (activated when user clicks recovery link in email)
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const hash = window.location.hash || '';
+        const search = window.location.search || '';
+        return hash.includes('type=recovery') || search.includes('type=recovery');
+      }
+    } catch {}
+    return false;
+  });
+
+  // Keep a stable ref to active user to avoid recreating callbacks
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  // Toast notification state
+  const [toast, setToast] = useState(null);
+
+  const showToast = useCallback(({ type = 'success', title = '', message = '', duration = 3500 }) => {
+    setToast({ type, title, message, duration });
+  }, []);
+
+  const hideToast = useCallback(() => {
+    setToast(null);
+  }, []);
+
+  // Helper to identify demo / seed Alex account
+  const isAlexUser = useCallback((u) => {
+    if (!u) return false;
+    const email = (u.email || '').toLowerCase();
+    const id = u.id || '';
+    return id === 'demo-alex-101' || email.includes('alex') || email === 'alex@moneydairy.app';
+  }, []);
+
+  // Helper to obtain user-scoped localStorage key
+  const getUserTxStorageKey = useCallback((u) => {
+    if (!u) return null;
+    if (isAlexUser(u)) return 'moneydairy_transactions_alex';
+    const keyId = u.id || u.email || 'user';
+    return `moneydairy_transactions_${keyId}`;
+  }, [isAlexUser]);
 
   // Avatar state
   const [avatarUrl, setAvatarUrl] = useState(() => {
@@ -186,32 +231,247 @@ export const FinanceProvider = ({ children }) => {
     await updateAvatar(null);
   }, [updateAvatar]);
 
-  // Toast notification state
-  const [toast, setToast] = useState(null);
+  // Update User Display Name
+  const updateUserName = useCallback(
+    async (newFullName) => {
+      const trimmed = (newFullName || '').trim();
+      if (!trimmed) {
+        return { success: false, error: 'Name cannot be empty' };
+      }
 
-  const showToast = useCallback(({ type = 'success', title = '', message = '', duration = 3500 }) => {
-    setToast({ type, title, message, duration });
-  }, []);
+      const activeUser = userRef.current;
+      if (!activeUser) return { success: false, error: 'No user logged in' };
 
-  const hideToast = useCallback(() => {
-    setToast(null);
-  }, []);
+      const uid = activeUser.id || activeUser.email || 'user';
 
-  // Helper to identify demo / seed Alex account
-  const isAlexUser = useCallback((u) => {
-    if (!u) return false;
-    const email = (u.email || '').toLowerCase();
-    const id = u.id || '';
-    return id === 'demo-alex-101' || email.includes('alex') || email === 'alex@moneydairy.app';
-  }, []);
+      try {
+        // 1. Persist to Supabase Auth if real registered user
+        if (
+          isSupabaseConfigured &&
+          activeUser?.id &&
+          activeUser.id !== 'demo-alex-101' &&
+          activeUser.id !== 'demo-guest-102'
+        ) {
+          const { data, error } = await supabase.auth.updateUser({
+            data: { full_name: trimmed },
+          });
 
-  // Helper to obtain user-scoped localStorage key
-  const getUserTxStorageKey = useCallback((u) => {
-    if (!u) return null;
-    if (isAlexUser(u)) return 'moneydairy_transactions_alex';
-    const keyId = u.id || u.email || 'user';
-    return `moneydairy_transactions_${keyId}`;
-  }, [isAlexUser]);
+          if (error) {
+            console.warn('Supabase updateUser error:', error.message);
+          } else if (data?.user) {
+            setUser(data.user);
+          }
+
+          // Optional: Also upsert to public.profiles table if user created it
+          try {
+            await supabase.from('profiles').upsert({
+              id: activeUser.id,
+              email: activeUser.email,
+              full_name: trimmed,
+              updated_at: new Date().toISOString(),
+            });
+          } catch {}
+        }
+
+        // 2. Always persist to localStorage cache
+        localStorage.setItem(`moneydairy_user_name_${uid}`, trimmed);
+
+        setUser((prev) => {
+          if (!prev) return prev;
+          const updatedUser = {
+            ...prev,
+            user_metadata: {
+              ...(prev.user_metadata || {}),
+              full_name: trimmed,
+            },
+          };
+          if (prev.id?.startsWith('demo-')) {
+            localStorage.setItem('moneydairy_demo_user', JSON.stringify(updatedUser));
+          }
+          return updatedUser;
+        });
+
+        showToast({
+          type: 'success',
+          title: language === 'vi' ? 'Thành công' : language === 'lo' ? 'ສຳເລັດ' : 'Success',
+          message:
+            language === 'vi'
+              ? 'Đã cập nhật họ tên thành công!'
+              : language === 'lo'
+              ? 'ອັບເດດຊື່ສຳເລັດແລ້ວ!'
+              : 'Display name updated successfully!',
+        });
+
+        return { success: true };
+      } catch (err) {
+        console.error('Update user name error:', err);
+        return { success: false, error: err.message };
+      }
+    },
+    [language, showToast]
+  );
+
+  // Monthly Budget state: { 'YYYY-MM': { food: 2000000, transport: 500000, ... } }
+  const [budgets, setBudgets] = useState({});
+
+  // Sync budgets with active user
+  useEffect(() => {
+    if (!user) {
+      setBudgets({});
+      return;
+    }
+
+    const uid = user.id || user.email || 'user';
+    const isAlex = user.id === 'demo-alex-101' || user.email?.includes('alex');
+
+    // 1. Try user_metadata
+    if (user.user_metadata?.budgets && Object.keys(user.user_metadata.budgets).length > 0) {
+      setBudgets(user.user_metadata.budgets);
+      return;
+    }
+
+    // 2. Try localStorage
+    const saved = localStorage.getItem(`moneydairy_budgets_${uid}`);
+    if (saved) {
+      try {
+        setBudgets(JSON.parse(saved));
+        return;
+      } catch {}
+    }
+
+    // 3. For Alex demo user, provide initial demo budget for reference
+    if (isAlex) {
+      const now = new Date();
+      const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const alexDemo = {
+        [currentKey]: {
+          food: 1500000,
+          transport: 400000,
+          bills: 600000,
+          shopping: 1000000,
+          entertainment: 350000,
+        },
+      };
+      setBudgets(alexDemo);
+      return;
+    }
+
+    // 4. Try fetching from public.budgets if table exists
+    if (isSupabaseConfigured && user.id) {
+      supabase
+        .from('budgets')
+        .select('*')
+        .eq('owner', uid)
+        .then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            const mapped = {};
+            data.forEach((row) => {
+              const key = `${row.year}-${String(row.month).padStart(2, '0')}`;
+              if (!mapped[key]) mapped[key] = {};
+              mapped[key][row.category] = Number(row.amount);
+            });
+            setBudgets(mapped);
+            localStorage.setItem(`moneydairy_budgets_${uid}`, JSON.stringify(mapped));
+          } else {
+            setBudgets({});
+          }
+        })
+        .catch(() => {
+          setBudgets({});
+        });
+    } else {
+      setBudgets({});
+    }
+  }, [user]);
+
+  // Save budget for a specific month
+  const saveBudget = useCallback(
+    async (monthKey, categoryBudgets) => {
+      const activeUser = userRef.current;
+      const uid = activeUser ? (activeUser.id || activeUser.email || 'user') : 'user';
+
+      const updated = {
+        ...budgets,
+        [monthKey]: categoryBudgets,
+      };
+
+      setBudgets(updated);
+
+      try {
+        localStorage.setItem(`moneydairy_budgets_${uid}`, JSON.stringify(updated));
+
+        // Save to Supabase Auth metadata for seamless cross-device persistence
+        if (
+          isSupabaseConfigured &&
+          activeUser?.id &&
+          activeUser.id !== 'demo-alex-101' &&
+          activeUser.id !== 'demo-guest-102'
+        ) {
+          await supabase.auth.updateUser({
+            data: { budgets: updated },
+          });
+
+          // Also attempt to upsert into public.budgets table if it exists
+          try {
+            const [yr, mo] = monthKey.split('-').map(Number);
+            const rows = Object.entries(categoryBudgets).map(([category, amount]) => ({
+              owner: uid,
+              category,
+              amount: Number(amount),
+              month: mo,
+              year: yr,
+            }));
+
+            if (rows.length > 0) {
+              await supabase.from('budgets').upsert(rows, { onConflict: 'owner,category,month,year' });
+            }
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Failed to persist budget:', err);
+      }
+    },
+    [budgets]
+  );
+
+  // Clear budget for a specific month
+  const clearBudget = useCallback(
+    async (monthKey) => {
+      const activeUser = userRef.current;
+      const uid = activeUser ? (activeUser.id || activeUser.email || 'user') : 'user';
+
+      const updated = { ...budgets };
+      delete updated[monthKey];
+
+      setBudgets(updated);
+
+      try {
+        localStorage.setItem(`moneydairy_budgets_${uid}`, JSON.stringify(updated));
+
+        if (
+          isSupabaseConfigured &&
+          activeUser?.id &&
+          activeUser.id !== 'demo-alex-101' &&
+          activeUser.id !== 'demo-guest-102'
+        ) {
+          await supabase.auth.updateUser({
+            data: { budgets: updated },
+          });
+
+          // Also remove from public.budgets if table exists
+          try {
+            const [yr, mo] = monthKey.split('-').map(Number);
+            await supabase.from('budgets').delete().match({ owner: uid, month: mo, year: yr });
+          } catch {}
+        }
+      } catch (err) {
+        console.warn('Failed to clear budget:', err);
+      }
+    },
+    [budgets]
+  );
+
+
 
   // Transactions state - scoped per user, defaults to empty array for new accounts
   const [transactions, setTransactions] = useState(() => {
@@ -247,9 +507,46 @@ export const FinanceProvider = ({ children }) => {
     createdAt: row.created_at,
   });
 
-  // Keep a stable ref to active user to avoid recreating callbacks
-  const userRef = useRef(user);
-  userRef.current = user;
+  // Helper to build comprehensive query filters for a given user account
+  const buildUserFilters = useCallback((activeUser) => {
+    if (!activeUser) return [];
+    const isAlex = isAlexUser(activeUser);
+    if (isAlex) {
+      const alexFilters = ['owner.eq.me', 'owner.eq.alex', 'owner.eq.Alex Morgan'];
+      if (activeUser.id) alexFilters.push(`owner.eq.${activeUser.id}`);
+      if (activeUser.email) alexFilters.push(`owner.eq.${activeUser.email}`);
+      return Array.from(new Set(alexFilters));
+    }
+
+    const userFilters = [];
+    const uid = activeUser.id;
+    const email = (activeUser.email || '').trim().toLowerCase();
+    const fullName = (
+      activeUser.user_metadata?.full_name ||
+      activeUser.user_metadata?.name ||
+      activeUser.name ||
+      ''
+    ).trim();
+
+    // 1. UUID exact match (strictly scoped to this account's unique id)
+    if (uid) {
+      userFilters.push(`owner.eq.${uid}`);
+    }
+
+    // 2. Email exact match
+    if (email) {
+      userFilters.push(`owner.eq.${email}`);
+    }
+
+    // 3. Legacy migration: ONLY for the specific test account '719d1bc9...'
+    if (typeof uid === 'string' && uid.startsWith('719d1bc9')) {
+      userFilters.push('owner.eq.Ekalat Phommaseng');
+      userFilters.push('owner.eq.Ekalat phommaseng');
+    }
+
+    return Array.from(new Set(userFilters));
+  }, [isAlexUser]);
+
 
   // 1. Fetch transactions from Supabase (scoped to active user)
   const fetchTransactions = useCallback(async (targetUser) => {
@@ -288,24 +585,13 @@ export const FinanceProvider = ({ children }) => {
         .select('*')
         .order('date', { ascending: false });
 
-      if (isAlex) {
-        // Alex user owns sample demo transactions
-        const alexFilters = ['owner.eq.me', 'owner.eq.alex'];
-        if (activeUser.id) alexFilters.push(`owner.eq.${activeUser.id}`);
-        if (activeUser.email) alexFilters.push(`owner.eq.${activeUser.email}`);
-        query = query.or(alexFilters.join(','));
+      const filters = buildUserFilters(activeUser);
+      if (filters.length > 0) {
+        query = query.or(filters.join(','));
       } else {
-        // Individual user accounts ONLY see their own transactions
-        const userFilters = [];
-        if (activeUser.id) userFilters.push(`owner.eq.${activeUser.id}`);
-        if (activeUser.email) userFilters.push(`owner.eq.${activeUser.email}`);
-        if (userFilters.length > 0) {
-          query = query.or(userFilters.join(','));
-        } else {
-          setTransactions([]);
-          setIsLoading(false);
-          return;
-        }
+        setTransactions([]);
+        setIsLoading(false);
+        return;
       }
 
       const { data, error } = await query;
@@ -346,7 +632,7 @@ export const FinanceProvider = ({ children }) => {
               payment_method: tx.paymentMethod,
               date: tx.date,
               notes: tx.notes || '',
-              owner: 'me',
+              owner: 'Alex Morgan',
             }));
 
             const { data: seededData, error: seedError } = await supabase
@@ -376,21 +662,78 @@ export const FinanceProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [isAlexUser, getUserTxStorageKey]);
+  }, [isAlexUser, getUserTxStorageKey, buildUserFilters]);
 
   // 2. Initialize Supabase Auth Session listener
   useEffect(() => {
     let isMounted = true;
 
+    const applySavedDisplayName = (u) => {
+      if (!u) return u;
+      const uid = u.id || u.email || 'user';
+      const savedName = localStorage.getItem(`moneydairy_user_name_${uid}`);
+      if (savedName) {
+        return {
+          ...u,
+          user_metadata: {
+            ...(u.user_metadata || {}),
+            full_name: savedName,
+          },
+        };
+      }
+      return u;
+    };
+
+    const notifyOAuthSignIn = (u) => {
+      if (!u || typeof window === 'undefined') return;
+      const isOAuthPending = sessionStorage.getItem('moneydairy_oauth_login_pending');
+      const hasOAuthHash = window.location.hash.includes('access_token') || window.location.search.includes('code=');
+
+      if (isOAuthPending || (hasOAuthHash && u.app_metadata?.provider === 'google')) {
+        sessionStorage.removeItem('moneydairy_oauth_login_pending');
+        if (window.history?.replaceState && window.location.hash.includes('access_token')) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+        const name =
+          u.user_metadata?.full_name ||
+          u.user_metadata?.name ||
+          u.email?.split('@')[0] ||
+          'User';
+
+        showToast({
+          type: 'success',
+          title: language === 'vi' ? 'Đăng nhập thành công' : language === 'lo' ? 'ເຂົ້າສູ່ລະບົບສຳເລັດ' : 'Sign In Successful',
+          message:
+            language === 'vi'
+              ? `Chào mừng ${name}! Bạn đã đăng nhập bằng Google thành công.`
+              : language === 'lo'
+              ? `ຍິນດີຕ້ອນຮັບ ${name}! ເຂົ້າສູ່ລະບົບດ້ວຍ Google ສຳເລັດແລ້ວ.`
+              : `Welcome, ${name}! Successfully signed in with Google.`,
+        });
+      }
+    };
+
     const restoreSession = async () => {
+      // Check if URL indicates password recovery link
+      if (
+        typeof window !== 'undefined' &&
+        (window.location.hash.includes('type=recovery') ||
+          window.location.search.includes('type=recovery') ||
+          window.location.href.includes('type=recovery'))
+      ) {
+        setIsPasswordRecovery(true);
+      }
+
       if (isSupabaseConfigured) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user && isMounted) {
+            const resolvedUser = applySavedDisplayName(session.user);
             setSession(session);
-            setUser(session.user);
+            setUser(resolvedUser);
             setIsAuthLoading(false);
-            fetchTransactions(session.user);
+            fetchTransactions(resolvedUser);
+            notifyOAuthSignIn(resolvedUser);
             return;
           }
         } catch (e) {
@@ -403,8 +746,9 @@ export const FinanceProvider = ({ children }) => {
         const storedDemo = localStorage.getItem('moneydairy_demo_user');
         if (storedDemo && isMounted) {
           const parsed = JSON.parse(storedDemo);
-          setUser(parsed);
-          fetchTransactions(parsed);
+          const resolvedUser = applySavedDisplayName(parsed);
+          setUser(resolvedUser);
+          fetchTransactions(resolvedUser);
         } else if (isMounted) {
           setUser(null);
           setTransactions([]);
@@ -421,22 +765,35 @@ export const FinanceProvider = ({ children }) => {
       }
     };
 
+    // Safety fallback: ensure loading screen is unblocked within 2.5s even if network or Supabase stalls
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        setIsAuthLoading(false);
+      }
+    }, 2500);
+
     restoreSession();
 
     if (isSupabaseConfigured) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         if (!isMounted) return;
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+        }
         setSession(session);
         if (session?.user) {
-          setUser(session.user);
-          fetchTransactions(session.user);
+          const resolvedUser = applySavedDisplayName(session.user);
+          setUser(resolvedUser);
+          fetchTransactions(resolvedUser);
+          notifyOAuthSignIn(resolvedUser);
         } else {
           const storedDemo = localStorage.getItem('moneydairy_demo_user');
           if (storedDemo) {
             try {
               const parsed = JSON.parse(storedDemo);
-              setUser(parsed);
-              fetchTransactions(parsed);
+              const resolvedUser = applySavedDisplayName(parsed);
+              setUser(resolvedUser);
+              fetchTransactions(resolvedUser);
             } catch {
               setUser(null);
               setTransactions([]);
@@ -451,14 +808,16 @@ export const FinanceProvider = ({ children }) => {
 
       return () => {
         isMounted = false;
+        clearTimeout(safetyTimer);
         subscription?.unsubscribe();
       };
     }
 
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
     };
-  }, [fetchTransactions]);
+  }, [fetchTransactions, language, showToast]);
 
   // Demo user login (for 1-click test chips, biometric scan, or offline testing)
   const signInDemo = useCallback((accountType = 'alex') => {
@@ -611,6 +970,128 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
+  // Reset Password for Email
+  const resetPassword = useCallback(
+    async (emailToReset) => {
+      const trimmed = (emailToReset || '').trim();
+      if (!trimmed) {
+        return { success: false, error: 'Email is required' };
+      }
+
+      // Demo account handling
+      if (
+        trimmed === 'alex@moneydairy.app' ||
+        trimmed === 'alex.phommaseng@gmail.com' ||
+        trimmed === 'guest@moneydairy.app'
+      ) {
+        return {
+          success: true,
+          message: 'Demo account: Password is Password123!',
+        };
+      }
+
+      try {
+        if (isSupabaseConfigured) {
+          const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+            redirectTo: window.location.origin,
+          });
+
+          if (error) {
+            return { success: false, error: error.message };
+          }
+          return { success: true };
+        }
+
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+    []
+  );
+
+  // Google OAuth Sign In / Sign Up
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('moneydairy_oauth_login_pending', 'Google');
+      }
+
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin,
+          },
+        });
+
+        if (error) {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('moneydairy_oauth_login_pending');
+          }
+          return { success: false, error: error.message };
+        }
+        return { success: true, data };
+      } else {
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('moneydairy_oauth_login_pending');
+        }
+        return signInDemo('alex');
+      }
+    } catch (err) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('moneydairy_oauth_login_pending');
+      }
+      return { success: false, error: err.message };
+    }
+  }, [signInDemo]);
+
+  // Update User Password (for Recovery or Settings)
+  const updatePassword = useCallback(
+    async (newPassword) => {
+      const trimmed = (newPassword || '').trim();
+      if (!trimmed || trimmed.length < 6) {
+        return { success: false, error: 'Password must be at least 6 characters' };
+      }
+
+      try {
+        if (isSupabaseConfigured) {
+          const { data, error } = await supabase.auth.updateUser({
+            password: trimmed,
+          });
+
+          if (error) {
+            return { success: false, error: error.message };
+          }
+
+          setIsPasswordRecovery(false);
+          if (typeof window !== 'undefined' && window.history?.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+
+          showToast({
+            type: 'success',
+            title: language === 'vi' ? 'Thành công' : language === 'lo' ? 'ສຳເລັດ' : 'Success',
+            message:
+              language === 'vi'
+                ? 'Đã cập nhật mật khẩu mới thành công!'
+                : language === 'lo'
+                ? 'ອັບເດດລະຫັດຜ່ານໃໝ່ສຳເລັດແລ້ວ!'
+                : 'Your password has been updated successfully!',
+          });
+
+          return { success: true, data };
+        }
+
+        setIsPasswordRecovery(false);
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
+    },
+    [language, showToast]
+  );
+
   // Realtime subscription - scoped by stable user id
   const userId = user?.id;
   useEffect(() => {
@@ -713,10 +1194,11 @@ export const FinanceProvider = ({ children }) => {
     const activeCurrObj = CURRENCIES[currency] || CURRENCIES['LAK'];
     const lakRate = CURRENCIES['LAK'].rateToUSD;
     const currRate = activeCurrObj.rateToUSD;
-
     const amountInLAK = Math.round(Number(transactionData.amount) * (lakRate / currRate));
 
-    const ownerTag = user?.id || user?.email || (isAlexUser(user) ? 'me' : 'user');
+    const ownerTag = isAlexUser(user)
+      ? 'Alex Morgan'
+      : (user?.id || user?.email || 'user');
     const storageKey = getUserTxStorageKey(user);
 
     const tempId = 'tx-' + Date.now();
@@ -726,7 +1208,7 @@ export const FinanceProvider = ({ children }) => {
       category: transactionData.category || (transactionData.type === 'income' ? 'salary' : 'other_expense'),
       amount: amountInLAK,
       type: transactionData.type,
-      date: transactionData.date ? new Date(transactionData.date).toISOString() : new Date().toISOString(),
+      date: transactionData.date || new Date().toISOString(),
       paymentMethod: transactionData.paymentMethod || 'QR Scan',
       notes: transactionData.notes || '',
       owner: ownerTag,
@@ -811,9 +1293,7 @@ export const FinanceProvider = ({ children }) => {
     if (isSupabaseConfigured) {
       try {
         if (isAlex) {
-          const alexFilters = ['owner.eq.me', 'owner.eq.alex'];
-          if (user.id) alexFilters.push(`owner.eq.${user.id}`);
-          if (user.email) alexFilters.push(`owner.eq.${user.email}`);
+          const alexFilters = buildUserFilters(user);
           await supabase.from('transactions').delete().or(alexFilters.join(','));
 
           const seedRows = INITIAL_TRANSACTIONS.map((tx) => ({
@@ -824,7 +1304,7 @@ export const FinanceProvider = ({ children }) => {
             payment_method: tx.paymentMethod,
             date: tx.date,
             notes: tx.notes || '',
-            owner: 'me',
+            owner: 'Alex Morgan',
           }));
 
           const { data } = await supabase.from('transactions').insert(seedRows).select();
@@ -834,9 +1314,7 @@ export const FinanceProvider = ({ children }) => {
             if (storageKey) localStorage.setItem(storageKey, JSON.stringify(mapped));
           }
         } else {
-          const userFilters = [];
-          if (user.id) userFilters.push(`owner.eq.${user.id}`);
-          if (user.email) userFilters.push(`owner.eq.${user.email}`);
+          const userFilters = buildUserFilters(user);
           if (userFilters.length > 0) {
             await supabase.from('transactions').delete().or(userFilters.join(','));
           }
@@ -901,6 +1379,26 @@ export const FinanceProvider = ({ children }) => {
 
   const totalBalanceLAK = totalIncomeLAK - totalExpenseLAK;
 
+  // Current month stats (scoped strictly to current real month, ignoring future dates)
+  const nowContext = new Date();
+  const currentRealYearContext = nowContext.getFullYear();
+  const currentRealMonthContext = nowContext.getMonth();
+  const currentMonthTxs = transactions.filter((tx) => {
+    if (!tx.date) return false;
+    const d = new Date(tx.date);
+    return d.getFullYear() === currentRealYearContext && d.getMonth() === currentRealMonthContext;
+  });
+
+  const thisMonthIncomeLAK = currentMonthTxs
+    .filter((tx) => tx.type === 'income')
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
+  const thisMonthExpenseLAK = currentMonthTxs
+    .filter((tx) => tx.type === 'expense')
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
+  const thisMonthNetLAK = thisMonthIncomeLAK - thisMonthExpenseLAK;
+
   // Recent 5 transactions
   const recentTransactions = [...transactions]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -919,6 +1417,12 @@ export const FinanceProvider = ({ children }) => {
         signInDemo,
         signUp,
         signOut,
+        resetPassword,
+        signInWithGoogle,
+        updateUserName,
+        isPasswordRecovery,
+        setIsPasswordRecovery,
+        updatePassword,
         transactions,
         currency,
         setCurrency,
@@ -938,6 +1442,8 @@ export const FinanceProvider = ({ children }) => {
         setCurrentTab,
         isAddModalOpen,
         setIsAddModalOpen,
+        isReportModalOpen,
+        setIsReportModalOpen,
         addTransaction,
         deleteTransaction,
         resetToSampleData,
@@ -946,6 +1452,9 @@ export const FinanceProvider = ({ children }) => {
         totalBalanceLAK,
         totalIncomeLAK,
         totalExpenseLAK,
+        thisMonthIncomeLAK,
+        thisMonthExpenseLAK,
+        thisMonthNetLAK,
         recentTransactions,
         isCloudConnected,
         isLoading,
@@ -953,6 +1462,9 @@ export const FinanceProvider = ({ children }) => {
         toast,
         showToast,
         hideToast,
+        budgets,
+        saveBudget,
+        clearBudget,
       }}
     >
       {children}

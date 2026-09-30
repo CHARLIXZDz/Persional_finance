@@ -60,8 +60,8 @@ const AppContent = () => {
         ) : (
           /* Main Authenticated App Screen */
           <>
-            {/* Global Locked Header across all views (Dashboard, Analytics, History, Settings, Reports) */}
-            <Header />
+            {/* Header shown on Home, Analytics, and History (hidden in Settings & Reports to avoid duplicate profile) */}
+            {currentTab !== 'settings' && currentTab !== 'reports' && <Header />}
 
             <main className="flex-1 overflow-y-auto overscroll-y-contain no-scrollbar">
               {currentTab === 'dashboard' && <DashboardView />}

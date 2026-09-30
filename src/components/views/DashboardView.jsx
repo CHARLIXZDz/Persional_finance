@@ -30,7 +30,7 @@ export const DashboardView = () => {
   const topCategoryPct = totalExpense > 0 ? Math.round((topCategoryAmount / totalExpense) * 100) : 0;
 
   return (
-    <div className="flex-1 pb-6 space-y-2 animate-fade-in">
+    <div className="flex-1 pb-32 space-y-2 animate-fade-in">
       {/* Header */}
       <Header />
 

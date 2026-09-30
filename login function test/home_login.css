@@ -686,6 +686,20 @@ html:not(.dark) .moon-icon {
   color: var(--text-main);
 }
 
+.btn-toggle-password.active {
+  color: var(--color-emerald);
+}
+
+/* Disable native Windows Edge/Chrome password reveal to avoid duplicate eye buttons */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
+}
+
+[hidden] {
+  display: none !important;
+}
+
 /* --------------------------------------------------------------------------
    Password Strength Meter
    -------------------------------------------------------------------------- */

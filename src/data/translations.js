@@ -46,7 +46,7 @@ export const TRANSLATIONS = {
       addTransaction: 'Add Transaction',
     },
     header: {
-      greeting: 'Hello, {name} 👋',
+      greeting: 'Hello, {name}',
       chooseLanguage: 'Language',
       chooseCurrency: 'Currency',
       notifications: 'Notifications',
@@ -340,7 +340,7 @@ export const TRANSLATIONS = {
       addTransaction: 'ເພີ່ມທຸລະກຳ',
     },
     header: {
-      greeting: 'ສະບາຍດີ, {name} 👋',
+      greeting: 'ສະບາຍດີ, {name}',
       chooseLanguage: 'ພາສາ',
       chooseCurrency: 'ສະກຸນເງິນ',
       notifications: 'ການແຈ້ງເຕືອນ',
@@ -635,7 +635,7 @@ export const TRANSLATIONS = {
       addTransaction: 'Thêm giao dịch',
     },
     header: {
-      greeting: 'Xin chào, {name} 👋',
+      greeting: 'Xin chào, {name}',
       chooseLanguage: 'Ngôn ngữ',
       chooseCurrency: 'Tiền tệ',
       notifications: 'Thông báo',

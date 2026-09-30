@@ -50,17 +50,16 @@ export const BottomNav = () => {
           )}
         </button>
 
-        {/* Center Floating Action Button (+) */}
-        <div className="flex-1 flex justify-center -mt-6">
+        {/* Center Action Button (+) - Leveled and centered with other buttons */}
+        <div className="flex-1 flex items-center justify-center py-1">
           <button
+            type="button"
             onClick={() => setIsAddModalOpen(true)}
-            className="group relative w-13 h-13 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-float-button hover:shadow-glow-emerald transition-all duration-300 active:scale-90 border-4 border-slate-100 dark:border-slate-950"
+            className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-200 active:scale-90"
             aria-label={t('nav.addTransaction')}
             title={t('nav.addTransaction')}
           >
-            <Plus className="w-6 h-6 transition-transform group-hover:rotate-90 duration-300" />
-            {/* Subtle ping pulse */}
-            <span className="absolute inset-0 rounded-full bg-emerald-400/20 animate-ping -z-10" />
+            <Plus className="w-5 h-5 transition-transform group-hover:rotate-90 duration-300 stroke-[2.5]" />
           </button>
         </div>
 

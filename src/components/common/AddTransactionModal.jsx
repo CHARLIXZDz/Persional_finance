@@ -229,7 +229,6 @@ export const AddTransactionModal = () => {
                 placeholder="0"
                 value={amount}
                 onChange={handleAmountChange}
-                autoFocus
                 className="w-full pl-12 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl text-2xl font-extrabold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
               />
             </div>

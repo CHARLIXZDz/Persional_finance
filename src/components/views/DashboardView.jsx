@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Header from '../common/Header';
 import HeroBalanceCard from '../common/HeroBalanceCard';
 import RecentTransactions from '../common/RecentTransactions';
 import { useFinance } from '../../context/FinanceContext';
@@ -69,10 +68,7 @@ export const DashboardView = () => {
   const topCategoryPct = totalExpense > 0 ? Math.round((topCategoryAmount / totalExpense) * 100) : 0;
 
   return (
-    <div className="flex-1 pb-32 space-y-2 animate-fade-in">
-      {/* Header */}
-      <Header />
-
+    <div className="flex-1 pb-32 space-y-2 animate-fade-in pt-3">
       {/* Hero Balance Card */}
       <HeroBalanceCard
         selectedYear={selectedYear}

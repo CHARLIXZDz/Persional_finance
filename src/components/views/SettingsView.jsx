@@ -143,7 +143,7 @@ export const SettingsView = () => {
   };
 
   return (
-    <div className="flex-1 px-5 pt-6 pb-28 space-y-5 animate-fade-in">
+    <div className="flex-1 px-5 pt-6 pb-36 space-y-5 animate-fade-in">
       {/* Title */}
       <div>
         <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
@@ -251,7 +251,7 @@ export const SettingsView = () => {
           </h3>
         </div>
 
-        <div className="p-1 bg-slate-200/50 dark:bg-slate-800/90 rounded-2xl border border-slate-200/70 dark:border-slate-700/80 grid grid-cols-3 gap-1 shadow-inner">
+        <div className="p-1.5 bg-slate-200/50 dark:bg-slate-800/90 rounded-2xl border border-slate-200/70 dark:border-slate-700/80 grid grid-cols-3 gap-1.5 shadow-inner">
           {Object.values(languages).map((lang) => {
             const isSelected = language === lang.code;
             return (
@@ -259,14 +259,14 @@ export const SettingsView = () => {
                 key={lang.code}
                 type="button"
                 onClick={() => setLanguage(lang.code)}
-                className={`h-9 px-2 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold select-none border transition-colors duration-150 cursor-pointer ${
+                className={`h-9 px-1.5 sm:px-2 rounded-xl flex items-center justify-center gap-1.5 text-[11px] sm:text-xs font-semibold select-none border transition-colors duration-150 cursor-pointer ${
                   isSelected
                     ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-slate-200/90 dark:border-emerald-500/35 shadow-sm dark:shadow-[0_2px_8px_rgba(0,0,0,0.4)]'
                     : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-white/40 dark:hover:bg-white/[0.04]'
                 }`}
               >
                 <FlagIcon code={lang.code} className="w-4 h-3 shrink-0" rounded={true} />
-                <span className="truncate leading-none">{lang.nativeName}</span>
+                <span className="whitespace-nowrap leading-none">{lang.nativeName}</span>
               </button>
             );
           })}
@@ -278,17 +278,20 @@ export const SettingsView = () => {
         <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1 leading-none">
           {t('settings.reportsSection')}
         </h3>
-        <div className="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-card p-4 space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center space-x-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+        <div
+          onClick={() => setCurrentTab('reports')}
+          className="group rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-card hover:border-emerald-500/40 p-4 transition-all duration-200 cursor-pointer active:scale-[0.99]"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start space-x-3 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
                 <BarChart3 className="w-4 h-4" />
               </div>
-              <div className="min-w-0 pr-1">
-                <p className="text-sm font-bold text-slate-900 dark:text-white leading-snug truncate">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-slate-900 dark:text-white leading-snug group-hover:text-emerald-500 transition-colors">
                   {t('settings.reportTitle')}
                 </p>
-                <p className="text-[11px] text-slate-400 leading-normal line-clamp-1">
+                <p className="text-xs text-slate-400 leading-relaxed mt-1">
                   {t('settings.reportDesc')}
                 </p>
               </div>
@@ -296,8 +299,11 @@ export const SettingsView = () => {
 
             <button
               type="button"
-              onClick={() => setCurrentTab('reports')}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-glow-emerald active:scale-95 flex items-center gap-1 shrink-0 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentTab('reports');
+              }}
+              className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-glow-emerald active:scale-95 flex items-center gap-1 shrink-0 cursor-pointer self-center"
             >
               <span>{t('settings.openReport')}</span>
               <ChevronRight className="w-3.5 h-3.5" />

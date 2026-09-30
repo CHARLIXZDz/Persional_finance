@@ -291,7 +291,7 @@ export const AuthView = () => {
   return (
     <div className="w-full flex flex-col justify-between min-h-full font-sans antialiased text-slate-900 dark:text-slate-100 animate-fade-in">
       {/* 1. TOP NAVIGATION CONTROLS */}
-      <header className="px-5 pt-[max(1rem,calc(env(safe-area-inset-top,0px)+0.75rem))] pb-3 flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.07] bg-white/70 dark:bg-slate-950/40 backdrop-blur-md sticky top-0 z-20">
+      <header className="px-5 pt-[max(3.25rem,calc(env(safe-area-inset-top,0px)+1.25rem))] sm:pt-4 pb-3.5 flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.07] bg-white/70 dark:bg-slate-950/40 backdrop-blur-md sticky top-0 z-20">
         {/* Brand Badge */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500/20 via-teal-500/20 to-indigo-500/20 border border-emerald-500/30 dark:border-emerald-500/40 flex items-center justify-center text-xl shadow-[0_4px_12px_rgba(16,185,129,0.15)] flex-shrink-0">

@@ -14,7 +14,7 @@ export const BottomNav = () => {
   ];
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-40 pointer-events-none px-4 pb-3 sm:pb-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))]">
+    <div className="absolute bottom-0 left-0 right-0 z-40 pointer-events-none px-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0.75rem))] sm:pb-4">
       {/* Docked Navigation Bar */}
       <nav className="pointer-events-auto relative w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-2xl px-3 py-2 flex items-center justify-around">
         

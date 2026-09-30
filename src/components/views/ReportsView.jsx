@@ -215,7 +215,7 @@ export const ReportsView = ({ onBack }) => {
   };
 
   return (
-    <div className="flex-1 px-5 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-28 space-y-5 animate-fade-in">
+    <div className="flex-1 px-5 pt-[max(3.25rem,calc(env(safe-area-inset-top,0px)+1.25rem))] sm:pt-6 pb-28 space-y-5 animate-fade-in">
       {/* Top Bar with Back Button & Share/Copy */}
       <div className="flex items-center justify-between pb-1">
         <button

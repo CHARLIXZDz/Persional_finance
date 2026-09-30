@@ -16,18 +16,18 @@ const AppContent = () => {
   const { currentTab, setCurrentTab, user, isAuthLoading, language } = useFinance();
 
   return (
-    <div className="h-[100dvh] w-full bg-slate-100 dark:bg-[#070B14] flex flex-col justify-center items-center sm:py-6 relative overflow-hidden transition-colors duration-300">
-      {/* Ambient background glow elements matching prototype (hardware accelerated) */}
+    <div className="h-[100dvh] w-full bg-slate-100 dark:bg-[#0A0F1D] flex flex-col justify-start sm:justify-center items-center sm:py-6 relative overflow-hidden transition-colors duration-300">
+      {/* Ambient background glow elements matching prototype (desktop only to prevent mobile status bar tinting & save GPU) */}
       <div
-        className="fixed -top-24 -left-20 w-96 h-96 rounded-full bg-emerald-500/20 blur-3xl transform-gpu will-change-transform pointer-events-none animate-float-orb z-0"
+        className="hidden sm:block fixed -top-24 -left-20 w-96 h-96 rounded-full bg-emerald-500/20 blur-3xl transform-gpu will-change-transform pointer-events-none animate-float-orb z-0"
         aria-hidden="true"
       />
       <div
-        className="fixed -bottom-28 -right-24 w-[420px] h-[420px] rounded-full bg-indigo-500/20 blur-3xl transform-gpu will-change-transform pointer-events-none animate-float-orb [animation-delay:-7s] z-0"
+        className="hidden sm:block fixed -bottom-28 -right-24 w-[420px] h-[420px] rounded-full bg-indigo-500/20 blur-3xl transform-gpu will-change-transform pointer-events-none animate-float-orb [animation-delay:-7s] z-0"
         aria-hidden="true"
       />
       <div
-        className="fixed top-1/3 right-1/4 w-72 h-72 rounded-full bg-rose-500/10 blur-3xl transform-gpu will-change-transform pointer-events-none animate-float-orb [animation-delay:-12s] z-0"
+        className="hidden sm:block fixed top-1/3 right-1/4 w-72 h-72 rounded-full bg-rose-500/10 blur-3xl transform-gpu will-change-transform pointer-events-none animate-float-orb [animation-delay:-12s] z-0"
         aria-hidden="true"
       />
 

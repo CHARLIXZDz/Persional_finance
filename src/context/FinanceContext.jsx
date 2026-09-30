@@ -1113,13 +1113,17 @@ export const FinanceProvider = ({ children }) => {
     };
   }, [userId, fetchTransactions]);
 
-  // Apply dark mode class to HTML root
+  // Apply dark mode class to HTML root and update mobile status bar theme-color
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
+    const themeColor = isDarkMode ? '#0A0F1D' : '#FFFFFF';
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+      meta.setAttribute('content', themeColor);
+    });
     localStorage.setItem('moneydairy_darkmode', JSON.stringify(isDarkMode));
   }, [isDarkMode]);
 

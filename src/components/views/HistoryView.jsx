@@ -98,7 +98,7 @@ export const HistoryView = () => {
   const grouped = groupTransactionsByDate(filtered);
 
   return (
-    <div className="flex-1 px-5 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-28 space-y-4 animate-fade-in">
+    <div className="flex-1 px-5 pt-4 pb-28 space-y-4 animate-fade-in">
       {/* Title */}
       <div className="flex items-center justify-between">
         <div>

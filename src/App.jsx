@@ -10,6 +10,7 @@ import AddTransactionModal from './components/common/AddTransactionModal';
 import ReportsView from './components/views/ReportsView';
 import ToastNotification from './components/common/ToastNotification';
 import ResetPasswordModal from './components/common/ResetPasswordModal';
+import Header from './components/common/Header';
 
 const AppContent = () => {
   const { currentTab, setCurrentTab, user, isAuthLoading, language } = useFinance();
@@ -59,6 +60,9 @@ const AppContent = () => {
         ) : (
           /* Main Authenticated App Screen */
           <>
+            {/* Global Locked Header across all views (Dashboard, Analytics, History, Settings, Reports) */}
+            <Header />
+
             <main className="flex-1 overflow-y-auto overscroll-y-contain no-scrollbar">
               {currentTab === 'dashboard' && <DashboardView />}
               {currentTab === 'analytics' && <AnalyticsView />}

@@ -143,7 +143,7 @@ export const SettingsView = () => {
   };
 
   return (
-    <div className="flex-1 px-5 pt-[max(1.5rem,calc(env(safe-area-inset-top,0px)+1rem))] pb-36 space-y-5 animate-fade-in">
+    <div className="flex-1 px-5 pt-4 pb-36 space-y-5 animate-fade-in">
       {/* Title */}
       <div>
         <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">

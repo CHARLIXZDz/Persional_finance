@@ -84,14 +84,14 @@ export const BottomNav = () => {
         <button
           onClick={() => setCurrentTab('settings')}
           className={`flex flex-col items-center justify-center flex-1 py-1 px-1 transition-all duration-200 active:scale-95 ${
-            currentTab === 'settings'
+            currentTab === 'settings' || currentTab === 'reports'
               ? 'text-emerald-600 dark:text-emerald-400 font-bold'
               : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
           }`}
         >
           <Settings className="w-5 h-5 transition-transform" />
           <span className="text-[10px] mt-1 font-medium leading-none">{t('nav.settings')}</span>
-          {currentTab === 'settings' && (
+          {(currentTab === 'settings' || currentTab === 'reports') && (
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-0.5 animate-pulse" />
           )}
         </button>

@@ -1,9 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Check, Calendar, CreditCard, Tag } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useFinance } from '../../context/FinanceContext';
 import { CATEGORIES, CURRENCIES } from '../../data/categories';
 import CategoryIcon from './CategoryIcon';
+
+// Helper to format numeric strings with thousand separators (e.g. 1000000 -> 1,000,000)
+const formatNumberWithCommas = (val) => {
+  if (!val && val !== 0) return '';
+  const cleaned = String(val).replace(/[^0-9.]/g, '');
+  if (!cleaned) return '';
+
+  const parts = cleaned.split('.');
+  const intStr = parts[0] ? BigInt(parts[0]).toLocaleString('en-US') : (parts.length > 1 ? '0' : '');
+  const decStr = parts.length > 1 ? '.' + parts.slice(1).join('') : '';
+  return intStr + decStr;
+};
+
+// Helper to extract clean Number from formatted string
+const getNumericValue = (val) => {
+  if (!val) return 0;
+  const cleaned = String(val).replace(/,/g, '');
+  return Number(cleaned) || 0;
+};
 
 export const AddTransactionModal = () => {
   const {
@@ -23,6 +42,19 @@ export const AddTransactionModal = () => {
   const [paymentMethod, setPaymentMethod] = useState('QR Scan');
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
 
+  // Format YYYY-MM-DD -> DD/MM/YYYY
+  const formatToDDMMYYYY = (isoDateStr) => {
+    if (!isoDateStr) return '';
+    const parts = isoDateStr.split('-');
+    if (parts.length === 3) {
+      const [y, m, d] = parts;
+      return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+    }
+    return isoDateStr;
+  };
+
+  const inputRef = useRef(null);
+
   if (!isAddModalOpen) return null;
 
   const currentCurrency = CURRENCIES[currency] || CURRENCIES['LAK'];
@@ -40,22 +72,66 @@ export const AddTransactionModal = () => {
       ? [100, 300, 500, 1000]
       : [10, 25, 50, 100];
 
+  const handleAmountChange = (e) => {
+    const rawInput = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+
+    const formatted = formatNumberWithCommas(rawInput);
+    setAmount(formatted);
+
+    // Keep cursor position stable when commas are added/removed
+    requestAnimationFrame(() => {
+      if (!inputRef.current) return;
+      const digitsBeforeCursor = rawInput.slice(0, cursorPosition).replace(/[^0-9.]/g, '').length;
+      let newCursor = 0;
+      let digitsCount = 0;
+      while (newCursor < formatted.length && digitsCount < digitsBeforeCursor) {
+        if (/[0-9.]/.test(formatted[newCursor])) {
+          digitsCount++;
+        }
+        newCursor++;
+      }
+      inputRef.current.setSelectionRange(newCursor, newCursor);
+    });
+  };
+
   const handleQuickAdd = (val) => {
-    const current = Number(amount) || 0;
-    setAmount((current + val).toString());
+    const current = getNumericValue(amount);
+    const nextVal = current + val;
+    setAmount(formatNumberWithCommas(nextVal));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) return;
+    const numericAmount = getNumericValue(amount);
+    if (!numericAmount || numericAmount <= 0) return;
+
+    // Combine selected date with current real time (giờ thực tế hiện tại)
+    const now = new Date();
+    let finalIsoDate = now.toISOString();
+    try {
+      if (date) {
+        const [year, month, day] = date.split('-').map(Number);
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+        const offsetMin = -now.getTimezoneOffset();
+        const sign = offsetMin >= 0 ? '+' : '-';
+        const pad = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0');
+        const tzOffset = `${sign}${pad(offsetMin / 60)}:${pad(offsetMin % 60)}`;
+        finalIsoDate = `${year}-${pad(month)}-${pad(day)}T${pad(hours)}:${pad(minutes)}:${pad(seconds)}${tzOffset}`;
+      }
+    } catch {
+      finalIsoDate = now.toISOString();
+    }
 
     addTransaction({
       title: title.trim() || (type === 'income' ? t('modal.receivedCash') : t('modal.quickExpense')),
-      amount: Number(amount),
+      amount: numericAmount,
       type,
       category,
       paymentMethod,
-      date,
+      date: finalIsoDate,
     });
 
     // Fire delightful celebration confetti
@@ -146,13 +222,13 @@ export const AddTransactionModal = () => {
                 {currentCurrency.symbol}
               </span>
               <input
-                type="number"
-                step="any"
+                ref={inputRef}
+                type="text"
                 inputMode="decimal"
                 required
                 placeholder="0"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={handleAmountChange}
                 autoFocus
                 className="w-full pl-12 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-2xl text-2xl font-extrabold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
               />
@@ -227,12 +303,17 @@ export const AddTransactionModal = () => {
               <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">
                 {t('modal.date')}
               </label>
-              <div className="relative flex items-center">
+              <div className="relative">
+                <div className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white flex items-center justify-between pointer-events-none">
+                  <span className="tracking-wide">{formatToDDMMYYYY(date)}</span>
+                  <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                </div>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  title="Chọn ngày"
                 />
               </div>
             </div>

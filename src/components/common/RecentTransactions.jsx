@@ -4,9 +4,13 @@ import { useFinance } from '../../context/FinanceContext';
 import { CATEGORIES } from '../../data/categories';
 import CategoryIcon from './CategoryIcon';
 
-export const RecentTransactions = () => {
+export const RecentTransactions = ({
+  transactions: propTransactions,
+  selectedYear,
+  selectedMonth,
+}) => {
   const {
-    recentTransactions,
+    recentTransactions: defaultRecentTransactions,
     formatCurrency,
     setCurrentTab,
     setIsAddModalOpen,
@@ -16,16 +20,37 @@ export const RecentTransactions = () => {
     formatDateLocalized,
   } = useFinance();
 
+  const isMonthScoped = propTransactions !== undefined;
+  const transactionsToDisplay = isMonthScoped
+    ? propTransactions
+    : defaultRecentTransactions;
+
+  const monthLabel =
+    selectedYear !== undefined && selectedMonth !== undefined
+      ? formatDateLocalized(new Date(selectedYear, selectedMonth, 1), {
+          month: 'short',
+          year: 'numeric',
+        })
+      : null;
+
   // Helper to format transaction date / time
   const formatTxTime = (dateString) => {
+    if (!dateString) return '';
     const txDate = new Date(dateString);
+    if (isNaN(txDate.getTime())) return '';
     const now = new Date();
     const diffHours = Math.round((now.getTime() - txDate.getTime()) / (1000 * 60 * 60));
 
-    if (diffHours < 24 && now.getDate() === txDate.getDate()) {
+    if (
+      diffHours < 24 &&
+      now.getDate() === txDate.getDate() &&
+      now.getMonth() === txDate.getMonth() &&
+      now.getFullYear() === txDate.getFullYear()
+    ) {
       return txDate.toLocaleTimeString([], {
-        hour: 'numeric',
+        hour: '2-digit',
         minute: '2-digit',
+        hour12: false,
       });
     }
     return formatDateLocalized(txDate, {
@@ -43,7 +68,9 @@ export const RecentTransactions = () => {
             {t('recent.title')}
           </h2>
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            {t('recent.subtitle')}
+            {monthLabel
+              ? t('recent.subtitleMonth', { month: monthLabel }) || t('recent.subtitle')
+              : t('recent.subtitle')}
           </p>
         </div>
         <button
@@ -56,9 +83,11 @@ export const RecentTransactions = () => {
       </div>
 
       {/* Transactions List */}
-      {recentTransactions.length === 0 ? (
+      {transactionsToDisplay.length === 0 ? (
         <div className="text-center py-8 px-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80">
-          <p className="text-sm text-slate-500 dark:text-slate-400">{t('recent.empty')}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {isMonthScoped ? t('recent.emptyMonth') : t('recent.empty')}
+          </p>
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="mt-3 inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-glow-emerald"
@@ -69,7 +98,7 @@ export const RecentTransactions = () => {
         </div>
       ) : (
         <div className="space-y-2.5">
-          {recentTransactions.map((tx) => {
+          {transactionsToDisplay.map((tx) => {
             const cat = CATEGORIES[tx.category] || {
               name: 'Other',
               icon: 'HelpCircle',
@@ -91,24 +120,24 @@ export const RecentTransactions = () => {
                     <CategoryIcon iconName={cat.icon} className="w-5 h-5" />
                   </div>
 
-                  <div className="min-w-0 pr-2">
+                  <div className="min-w-0 pr-2 flex-1">
                     <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
                       {tx.title}
                     </p>
-                    <div className="flex items-center space-x-2 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      <span className="font-medium text-slate-600 dark:text-slate-300">
+                    <div className="flex items-center space-x-1.5 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 whitespace-nowrap overflow-hidden">
+                      <span className="font-medium text-slate-600 dark:text-slate-300 shrink-0">
                         {catName}
                       </span>
-                      <span>•</span>
-                      <span>{formatTxTime(tx.date)}</span>
+                      <span className="shrink-0">•</span>
+                      <span className="truncate">{getPaymentMethodName(tx.paymentMethod)}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Right: Amount & Indicator */}
-                <div className="text-right shrink-0">
+                {/* Right: Amount & Time */}
+                <div className="text-right flex flex-col items-end shrink-0 pl-2">
                   <div
-                    className={`text-sm font-bold tracking-tight ${
+                    className={`text-sm font-bold tracking-tight whitespace-nowrap ${
                       isIncome
                         ? 'text-emerald-600 dark:text-emerald-400'
                         : 'text-rose-600 dark:text-rose-400'
@@ -117,8 +146,8 @@ export const RecentTransactions = () => {
                     {isIncome ? '+ ' : '- '}
                     {formatCurrency(tx.amount)}
                   </div>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                    {getPaymentMethodName(tx.paymentMethod)}
+                  <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mt-0.5 whitespace-nowrap">
+                    {formatTxTime(tx.date)}
                   </span>
                 </div>
               </div>

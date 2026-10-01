@@ -157,19 +157,19 @@ const runNativeCanvasBurst = (canvas) => {
 };
 
 let lastFireTime = 0;
-const CONFETTI_COOLDOWN_MS = 2500;
+const CONFETTI_COOLDOWN_MS = 2000;
 
 /**
  * Triggers the celebration animation:
- * Exactly ONE clean, crisp, lightweight burst (70 particles, spread 70, origin y: 0.65)
- * Protected by a 2.5s debounce lock so it never fires twice or causes GPU lag.
+ * Exactly ONE ultra-smooth, silky, crisp burst (72 particles, spread 72, gravity 0.82)
+ * Protected by a 2.0s debounce lock to prevent lag, stutter, or duplicate firing.
  */
 export const triggerConfetti = () => {
   if (typeof window === 'undefined') return;
 
   const now = Date.now();
   if (now - lastFireTime < CONFETTI_COOLDOWN_MS) {
-    // Strictly block duplicate triggers within 2.5s to prevent lag & double firing
+    // Strictly block duplicate triggers within 2s to prevent lag & double firing
     return;
   }
   lastFireTime = now;
@@ -179,12 +179,18 @@ export const triggerConfetti = () => {
 
   if (cannon) {
     try {
-      // Exactly 1 single crisp burst (zero extra timeouts, zero lag)
+      // Exactly 1 silky-smooth burst with natural physics & gentle float
       cannon({
-        particleCount: 70,
-        spread: 70,
+        particleCount: 72,
+        spread: 72,
+        startVelocity: 42,
         origin: { y: 0.65 },
         colors: BRAND_COLORS,
+        gravity: 0.82, // Elegant floating descent without jarring falls
+        ticks: 250,    // Smooth 60fps fade out duration
+        scalar: 1.05,  // Crisp, clear particle size
+        drift: 0,
+        shapes: ['square', 'circle'],
         disableForReducedMotion: false,
         zIndex: 999999,
       });

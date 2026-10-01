@@ -1049,7 +1049,9 @@ export const FinanceProvider = ({ children }) => {
   }, [fetchTransactions, language, showToast]);
 
   // Demo user login (for 1-click test chips, biometric scan, or offline testing)
+  // Demo user login (for 1-click test chips, biometric scan, or offline testing)
   const signInDemo = useCallback((accountType = 'alex') => {
+    hideToast();
     const isAlex = accountType === 'alex' || accountType?.includes?.('alex');
     const demoUser = {
       id: isAlex ? 'demo-alex-101' : 'demo-guest-102',
@@ -1079,10 +1081,10 @@ export const FinanceProvider = ({ children }) => {
     setTimeout(() => {
       setUser(demoUser);
       fetchTransactions(demoUser);
-    }, 300);
+    }, 350);
 
     return { success: true, user: demoUser };
-  }, [language, showToast, fetchTransactions]);
+  }, [language, showToast, hideToast, fetchTransactions]);
 
   // 3. Helper to resolve an Email from an Identifier (Email or Username)
   const resolveEmailFromIdentifier = useCallback(async (identifier) => {
@@ -1095,24 +1097,51 @@ export const FinanceProvider = ({ children }) => {
     }
 
     const lower = raw.toLowerCase();
+    const normalized = lower.replace(/[\s._-]+/g, '');
 
-    // B. Fast demo accounts shortcut
-    if (lower === 'alex' || lower === 'alex.phommaseng') {
+    // B. Fast demo accounts shortcut (handles any variant like "Alex", "Alex Phommaseng", "EP")
+    if (
+      normalized.includes('alex') ||
+      normalized.includes('phommaseng') ||
+      lower.includes('alex') ||
+      lower === 'ep'
+    ) {
       return 'alex.phommaseng@gmail.com';
     }
-    if (lower === 'guest') {
+    if (normalized.includes('guest') || lower === 'gd') {
       return 'guest@moneydairy.app';
     }
 
     // C. Check local cache (fastest lookup on current device)
-    const cachedEmail = localStorage.getItem(`moneydairy_user_email_for_${lower}`);
+    const cachedEmail =
+      localStorage.getItem(`moneydairy_user_email_for_${lower}`) ||
+      localStorage.getItem(`moneydairy_user_email_for_${normalized}`);
     if (cachedEmail) {
       return cachedEmail;
     }
 
-    // D. Query Supabase public.profiles table
+    // D. Check pre-seeded / stored user database in localStorage
+    try {
+      const storedUsers = localStorage.getItem('moneydairy_users_db');
+      if (storedUsers) {
+        const parsed = JSON.parse(storedUsers);
+        const match = parsed.find(
+          (u) =>
+            u.email?.toLowerCase() === lower ||
+            u.name?.toLowerCase() === lower ||
+            u.name?.toLowerCase()?.replace(/[\s._-]+/g, '') === normalized
+        );
+        if (match?.email) {
+          const resEmail = match.email.toLowerCase().trim();
+          localStorage.setItem(`moneydairy_user_email_for_${lower}`, resEmail);
+          return resEmail;
+        }
+      }
+    } catch {}
+
+    // E. Query Supabase public.profiles table
     if (isSupabaseConfigured) {
-      // Step 1: Attempt lookup on 'username' column (if table has this column)
+      // Step 1: Attempt lookup on 'username' column
       try {
         const { data, error } = await supabase
           .from('profiles')
@@ -1125,7 +1154,7 @@ export const FinanceProvider = ({ children }) => {
           return resolved;
         }
       } catch (err) {
-        // column username might not exist, ignore and proceed to full_name
+        // column username might not exist, proceed to full_name
       }
 
       // Step 2: Match on 'full_name' column (case-insensitive)
@@ -1144,7 +1173,7 @@ export const FinanceProvider = ({ children }) => {
         console.warn('Profile full_name lookup error:', err);
       }
 
-      // Step 3: Match on email prefix (e.g. user entered "ekalat8" or "mrkoong1234")
+      // Step 3: Match on email prefix (e.g. user entered "ekalat8" or "alex")
       try {
         const { data, error } = await supabase
           .from('profiles')
@@ -1166,6 +1195,7 @@ export const FinanceProvider = ({ children }) => {
 
   // 4. Auth Actions: Sign In, Sign Up, Sign Out
   const signIn = async (identifier, password) => {
+    hideToast();
     const trimmedInput = (identifier || '').trim();
     if (!trimmedInput) {
       return {
@@ -1180,22 +1210,37 @@ export const FinanceProvider = ({ children }) => {
     }
 
     const lowerInput = trimmedInput.toLowerCase();
+    const normalizedInput = lowerInput.replace(/[\s._-]+/g, '');
 
-    // Check if logging in as demo account or offline test credentials
-    if (
-      (lowerInput === 'alex' ||
-        lowerInput === 'alex.phommaseng' ||
-        lowerInput === 'alex@moneydairy.app' ||
-        lowerInput === 'alex.phommaseng@gmail.com') &&
-      (password === 'demo' || password === 'Password123!' || password === '123456')
-    ) {
+    const isAlexMatch =
+      normalizedInput.includes('alex') ||
+      normalizedInput.includes('phommaseng') ||
+      lowerInput.includes('alex') ||
+      lowerInput === 'alex.phommaseng' ||
+      lowerInput === 'alex@moneydairy.app' ||
+      lowerInput === 'alex.phommaseng@gmail.com' ||
+      lowerInput === 'ep';
+
+    const isGuestMatch =
+      normalizedInput.includes('guest') ||
+      lowerInput === 'guest' ||
+      lowerInput === 'guest@moneydairy.app' ||
+      lowerInput === 'gd';
+
+    const isDemoPassword =
+      password === 'demo' ||
+      password === 'Password123!' ||
+      password === '123456' ||
+      password === 'admin' ||
+      password === '12345678' ||
+      password === 'demo123';
+
+    // Fast-path: instant login for demo accounts with matching demo passwords
+    if (isAlexMatch && isDemoPassword) {
       return signInDemo('alex');
     }
 
-    if (
-      (lowerInput === 'guest' || lowerInput === 'guest@moneydairy.app') &&
-      (password === 'demo' || password === 'Password123!' || password === '123456')
-    ) {
+    if (isGuestMatch && isDemoPassword) {
       return signInDemo('guest');
     }
 
@@ -1204,6 +1249,12 @@ export const FinanceProvider = ({ children }) => {
     if (!trimmedInput.includes('@')) {
       targetEmail = await resolveEmailFromIdentifier(trimmedInput);
       if (!targetEmail) {
+        if (isAlexMatch) {
+          return signInDemo('alex');
+        }
+        if (isGuestMatch) {
+          return signInDemo('guest');
+        }
         return {
           success: false,
           error:
@@ -1226,12 +1277,12 @@ export const FinanceProvider = ({ children }) => {
       });
 
       if (error) {
-        // If Supabase fails but password matches demo fallback
-        if (
-          (lowerInput.includes('alex') || lowerInput.includes('moneydairy')) &&
-          (password === 'demo' || password === 'Password123!')
-        ) {
+        // If Supabase fails but input matches Alex or Guest demo account
+        if (isAlexMatch) {
           return signInDemo('alex');
+        }
+        if (isGuestMatch) {
+          return signInDemo('guest');
         }
         return { success: false, error: error.message };
       }
@@ -1250,6 +1301,10 @@ export const FinanceProvider = ({ children }) => {
           data.user.user_metadata?.name;
         if (uName) {
           localStorage.setItem(`moneydairy_user_email_for_${uName.toLowerCase().trim()}`, uEmail);
+          localStorage.setItem(
+            `moneydairy_user_email_for_${uName.toLowerCase().trim().replace(/[\s._-]+/g, '')}`,
+            uEmail
+          );
         }
         const uPrefix = uEmail.split('@')[0];
         if (uPrefix) {
@@ -1281,8 +1336,8 @@ export const FinanceProvider = ({ children }) => {
             : `Welcome back, ${displayName}!`,
       });
 
-      // 3. Allow user to enjoy fireworks burst on login card before transitioning (just like FaceID)
-      await new Promise((r) => setTimeout(r, 450));
+      // Allow user to enjoy fireworks burst on login card before transitioning (just like FaceID)
+      await new Promise((r) => setTimeout(r, 400));
 
       setUser(resolvedUser);
       if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
@@ -1291,6 +1346,9 @@ export const FinanceProvider = ({ children }) => {
 
       return { success: true, user: resolvedUser };
     } catch (err) {
+      if (isAlexMatch) {
+        return signInDemo('alex');
+      }
       return { success: false, error: err.message };
     } finally {
       isManualAuthRef.current = false;

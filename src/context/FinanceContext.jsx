@@ -3,7 +3,7 @@ import { INITIAL_TRANSACTIONS } from '../data/initialData';
 import { CURRENCIES, CATEGORIES } from '../data/categories';
 import { LANGUAGES, TRANSLATIONS } from '../data/translations';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
-import { triggerFireworks } from '../utils/confetti';
+import { triggerConfetti, triggerFireworks } from '../utils/confetti';
 
 const FinanceContext = createContext(null);
 
@@ -936,7 +936,7 @@ export const FinanceProvider = ({ children }) => {
               : `Welcome, ${name}! Successfully signed in with Google.`,
         });
 
-        triggerFireworks();
+        triggerConfetti();
       }
     };
 
@@ -1064,8 +1064,9 @@ export const FinanceProvider = ({ children }) => {
     };
 
     localStorage.setItem('moneydairy_demo_user', JSON.stringify(demoUser));
-    setUser(demoUser);
-    fetchTransactions(demoUser);
+
+    // Fire celebration animation immediately!
+    triggerConfetti();
 
     showToast({
       type: 'success',
@@ -1077,7 +1078,8 @@ export const FinanceProvider = ({ children }) => {
         : `Welcome back, ${demoUser.user_metadata.full_name}!`,
     });
 
-    triggerFireworks();
+    setUser(demoUser);
+    fetchTransactions(demoUser);
 
     return { success: true, user: demoUser };
   }, [language, showToast, fetchTransactions]);
@@ -1253,10 +1255,9 @@ export const FinanceProvider = ({ children }) => {
 
       // Resolve complete user profile (protects custom name & avatar)
       const { resolvedUser, resolvedAvatar } = await resolveUserProfile(data.user);
-      setUser(resolvedUser);
-      if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
-      setSession(data.session);
-      fetchTransactions(resolvedUser);
+
+      // 1. Immediately trigger celebration confetti animation on current view!
+      triggerConfetti();
 
       const displayName =
         resolvedUser.user_metadata?.custom_full_name ||
@@ -1279,7 +1280,13 @@ export const FinanceProvider = ({ children }) => {
             : `Welcome back, ${displayName}!`,
       });
 
-      triggerFireworks();
+      // 2. Allow user to see the confetti explosion on the login screen before switching to Dashboard
+      await new Promise((r) => setTimeout(r, 450));
+
+      setUser(resolvedUser);
+      if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
+      setSession(data.session);
+      fetchTransactions(resolvedUser);
 
       return { success: true, user: resolvedUser };
     } catch (err) {
@@ -1336,10 +1343,9 @@ export const FinanceProvider = ({ children }) => {
       if (!needsConfirmation && data.user) {
         localStorage.removeItem('moneydairy_demo_user');
         const { resolvedUser, resolvedAvatar } = await resolveUserProfile(data.user);
-        setUser(resolvedUser);
-        if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
-        setSession(data.session);
-        fetchTransactions(resolvedUser);
+
+        // Fire celebration animation immediately!
+        triggerConfetti();
 
         showToast({
           type: 'success',
@@ -1351,7 +1357,12 @@ export const FinanceProvider = ({ children }) => {
             : 'Welcome to MoneyDairy!',
         });
 
-        triggerFireworks();
+        await new Promise((r) => setTimeout(r, 450));
+
+        setUser(resolvedUser);
+        if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
+        setSession(data.session);
+        fetchTransactions(resolvedUser);
       }
 
       return { success: true, user: data.user, needsConfirmation };

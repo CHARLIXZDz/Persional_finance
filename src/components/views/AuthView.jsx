@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { Mail, Lock, User, Check, Sun, Moon, Eye, EyeOff, ShieldCheck } from 'lucide-react';
-import { triggerFireworks } from '../../utils/confetti';
+import { triggerConfetti } from '../../utils/confetti';
 import { FlagIcon } from '../common/FlagIcon';
 
 export const AuthView = () => {

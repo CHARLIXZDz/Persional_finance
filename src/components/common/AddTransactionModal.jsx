@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Check, Calendar, CreditCard, Tag } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { triggerQuickBurst } from '../../utils/confetti';
 import { useFinance } from '../../context/FinanceContext';
 import { CATEGORIES, CURRENCIES } from '../../data/categories';
 import CategoryIcon from './CategoryIcon';
@@ -135,15 +135,7 @@ export const AddTransactionModal = () => {
     });
 
     // Fire delightful celebration confetti
-    try {
-      confetti({
-        particleCount: 45,
-        spread: 60,
-        origin: { y: 0.8 },
-      });
-    } catch {
-      // ignore
-    }
+    triggerQuickBurst();
 
     // Reset form
     setAmount('');

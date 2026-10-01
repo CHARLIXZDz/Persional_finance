@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, startTransition } from 'react';
 import { INITIAL_TRANSACTIONS } from '../data/initialData';
 import { CURRENCIES, CATEGORIES } from '../data/categories';
 import { LANGUAGES, TRANSLATIONS } from '../data/translations';
@@ -1095,9 +1095,11 @@ export const FinanceProvider = ({ children }) => {
     });
 
     setTimeout(() => {
-      setUser(demoUser);
+      startTransition(() => {
+        setUser(demoUser);
+      });
       fetchTransactions(demoUser);
-    }, 350);
+    }, 400);
 
     return { success: true, user: demoUser };
   }, [language, showToast, hideToast, fetchTransactions]);
@@ -1303,9 +1305,6 @@ export const FinanceProvider = ({ children }) => {
         return { success: false, error: error.message };
       }
 
-      // 1. Immediately trigger celebration fireworks like FaceID!
-      triggerConfetti();
-
       localStorage.removeItem('moneydairy_demo_user');
 
       // Cache mapping username -> email for fast future lookups
@@ -1336,6 +1335,9 @@ export const FinanceProvider = ({ children }) => {
         resolvedUser.user_metadata?.full_name ||
         resolvedUser.email;
 
+      // 1. Fire celebration fireworks & success toast together at the exact same moment!
+      triggerConfetti();
+
       showToast({
         type: 'success',
         title:
@@ -1352,12 +1354,14 @@ export const FinanceProvider = ({ children }) => {
             : `Welcome back, ${displayName}!`,
       });
 
-      // Allow user to enjoy fireworks burst on login card before transitioning (just like FaceID)
+      // Allow user to enjoy fireworks burst apex on login card before transitioning (just like FaceID)
       await new Promise((r) => setTimeout(r, 400));
 
-      setUser(resolvedUser);
-      if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
-      setSession(data.session);
+      startTransition(() => {
+        setUser(resolvedUser);
+        if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
+        setSession(data.session);
+      });
       fetchTransactions(resolvedUser);
 
       return { success: true, user: resolvedUser };
@@ -1436,9 +1440,11 @@ export const FinanceProvider = ({ children }) => {
 
         await new Promise((r) => setTimeout(r, 450));
 
-        setUser(resolvedUser);
-        if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
-        setSession(data.session);
+        startTransition(() => {
+          setUser(resolvedUser);
+          if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
+          setSession(data.session);
+        });
         fetchTransactions(resolvedUser);
       }
 

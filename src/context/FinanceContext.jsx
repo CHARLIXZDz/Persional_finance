@@ -913,7 +913,7 @@ export const FinanceProvider = ({ children }) => {
       const isOAuthPending = sessionStorage.getItem('moneydairy_oauth_login_pending');
       const hasOAuthHash = window.location.hash.includes('access_token') || window.location.search.includes('code=');
 
-      if (isOAuthPending || (hasOAuthHash && u.app_metadata?.provider === 'google')) {
+      if (isOAuthPending || hasOAuthHash) {
         sessionStorage.removeItem('moneydairy_oauth_login_pending');
         if (window.history?.replaceState && window.location.hash.includes('access_token')) {
           window.history.replaceState(null, '', window.location.pathname);
@@ -1078,8 +1078,10 @@ export const FinanceProvider = ({ children }) => {
         : `Welcome back, ${demoUser.user_metadata.full_name}!`,
     });
 
-    setUser(demoUser);
-    fetchTransactions(demoUser);
+    setTimeout(() => {
+      setUser(demoUser);
+      fetchTransactions(demoUser);
+    }, 300);
 
     return { success: true, user: demoUser };
   }, [language, showToast, fetchTransactions]);

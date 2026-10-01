@@ -776,172 +776,170 @@ export const FinanceProvider = ({ children }) => {
     }
   }, [isAlexUser, getUserTxStorageKey, buildUserFilters]);
 
-  // 2. Initialize Supabase Auth Session listener
-  useEffect(() => {
-    let isMounted = true;
+  // 2. Authoritative Profile Resolver (Protects custom name & avatar, accessible across entire app)
+  const resolveUserProfile = useCallback(async (u) => {
+    if (!u) return { resolvedUser: u, resolvedAvatar: null };
+    const uid = u.id || u.email || 'user';
+    const email = (u.email || '').toLowerCase().trim();
 
-    const resolveUserProfile = async (u) => {
-      if (!u) return { resolvedUser: u, resolvedAvatar: null };
-      const uid = u.id || u.email || 'user';
-      const email = (u.email || '').toLowerCase().trim();
+    // 1. Check local storage cache (by UID and by Email)
+    const localName =
+      localStorage.getItem(`moneydairy_user_name_${uid}`) ||
+      (email ? localStorage.getItem(`moneydairy_user_name_${email}`) : null);
 
-      // 1. Check local storage cache (by UID and by Email)
-      const localName =
-        localStorage.getItem(`moneydairy_user_name_${uid}`) ||
-        (email ? localStorage.getItem(`moneydairy_user_name_${email}`) : null);
+    const localAvatar =
+      localStorage.getItem(`moneydairy_avatar_${uid}`) ||
+      (email ? localStorage.getItem(`moneydairy_avatar_${email}`) : null);
 
-      const localAvatar =
-        localStorage.getItem(`moneydairy_avatar_${uid}`) ||
-        (email ? localStorage.getItem(`moneydairy_avatar_${email}`) : null);
+    // 2. Query public.profiles table from Supabase
+    let dbName = null;
+    let dbAvatar = null;
+    if (isSupabaseConfigured && u.id && !u.id.startsWith('demo-')) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', u.id)
+          .maybeSingle();
 
-      // 2. Query public.profiles table from Supabase
-      let dbName = null;
-      let dbAvatar = null;
-      if (isSupabaseConfigured && u.id && !u.id.startsWith('demo-')) {
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url')
-            .eq('id', u.id)
-            .maybeSingle();
-
-          if (profile) {
-            dbName = profile.full_name;
-            dbAvatar = profile.avatar_url;
-          }
-        } catch (dbErr) {
-          console.warn('Database profile query error:', dbErr);
+        if (profile) {
+          dbName = profile.full_name;
+          dbAvatar = profile.avatar_url;
         }
+      } catch (dbErr) {
+        console.warn('Database profile query error:', dbErr);
       }
+    }
 
-      // 3. Custom fields in user_metadata (Google OAuth never overwrites custom keys)
-      const metaCustomName = u.user_metadata?.custom_full_name;
-      const metaCustomAvatar = u.user_metadata?.custom_avatar_url;
+    // 3. Custom fields in user_metadata (Google OAuth never overwrites custom keys)
+    const metaCustomName = u.user_metadata?.custom_full_name;
+    const metaCustomAvatar = u.user_metadata?.custom_avatar_url;
 
-      // Determine authoritative Name:
-      // Priority: metaCustomName > localName > (dbName if different from Google raw name) > dbName > user_metadata.full_name > user_metadata.name > email
-      const resolvedName =
-        metaCustomName ||
-        localName ||
-        (dbName && dbName !== u.user_metadata?.name ? dbName : null) ||
-        dbName ||
+    // Determine authoritative Name:
+    const resolvedName =
+      metaCustomName ||
+      localName ||
+      (dbName && dbName !== u.user_metadata?.name ? dbName : null) ||
+      dbName ||
+      u.user_metadata?.full_name ||
+      u.user_metadata?.name ||
+      (email ? email.split('@')[0] : 'User');
+
+    // Determine authoritative Avatar:
+    const isDbUploadedAvatar = dbAvatar && dbAvatar.includes('/avatars/');
+    const isLocalUploadedAvatar = localAvatar && localAvatar.includes('/avatars/');
+    const isMetaUploadedAvatar = metaCustomAvatar && metaCustomAvatar.includes('/avatars/');
+
+    const resolvedAvatar =
+      (isMetaUploadedAvatar ? metaCustomAvatar : null) ||
+      (isDbUploadedAvatar ? dbAvatar : null) ||
+      (isLocalUploadedAvatar ? localAvatar : null) ||
+      metaCustomAvatar ||
+      localAvatar ||
+      dbAvatar ||
+      u.user_metadata?.avatar_url ||
+      u.user_metadata?.picture ||
+      null;
+
+    // 4. If Google OAuth overwrote metadata or if custom metadata is missing:
+    const isGoogleOAuth =
+      u.app_metadata?.provider === 'google' ||
+      u.identities?.some((i) => i.provider === 'google');
+
+    if (
+      isSupabaseConfigured &&
+      u.id &&
+      !u.id.startsWith('demo-') &&
+      (isGoogleOAuth ||
+        resolvedName !== u.user_metadata?.full_name ||
+        resolvedAvatar !== u.user_metadata?.avatar_url ||
+        !u.user_metadata?.custom_full_name)
+    ) {
+      setTimeout(async () => {
+        try {
+          await supabase.auth.updateUser({
+            data: {
+              full_name: resolvedName,
+              custom_full_name: resolvedName,
+              avatar_url: resolvedAvatar || '',
+              custom_avatar_url: resolvedAvatar || '',
+              has_custom_profile: true,
+            },
+          });
+
+          await supabase.from('profiles').upsert({
+            id: u.id,
+            email: u.email,
+            full_name: resolvedName,
+            avatar_url: resolvedAvatar,
+            updated_at: new Date().toISOString(),
+          });
+        } catch (reSyncErr) {
+          console.warn('Background profile re-sync error:', reSyncErr);
+        }
+      }, 50);
+    }
+
+    // Re-cache to localStorage under both UID and Email
+    if (resolvedName) {
+      localStorage.setItem(`moneydairy_user_name_${uid}`, resolvedName);
+      if (email) localStorage.setItem(`moneydairy_user_name_${email}`, resolvedName);
+    }
+    if (resolvedAvatar) {
+      localStorage.setItem(`moneydairy_avatar_${uid}`, resolvedAvatar);
+      if (email) localStorage.setItem(`moneydairy_avatar_${email}`, resolvedAvatar);
+    }
+
+    const finalUser = {
+      ...u,
+      user_metadata: {
+        ...(u.user_metadata || {}),
+        full_name: resolvedName,
+        custom_full_name: resolvedName,
+        avatar_url: resolvedAvatar || '',
+        custom_avatar_url: resolvedAvatar || '',
+        has_custom_profile: true,
+      },
+    };
+
+    return { resolvedUser: finalUser, resolvedAvatar };
+  }, []);
+
+  const notifyOAuthSignIn = useCallback((u) => {
+    if (!u || typeof window === 'undefined') return;
+    const isOAuthPending = sessionStorage.getItem('moneydairy_oauth_login_pending');
+    const hasOAuthHash = window.location.hash.includes('access_token') || window.location.search.includes('code=');
+
+    if (isOAuthPending || hasOAuthHash) {
+      sessionStorage.removeItem('moneydairy_oauth_login_pending');
+      if (window.history?.replaceState && window.location.hash.includes('access_token')) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+      const name =
+        u.user_metadata?.custom_full_name ||
         u.user_metadata?.full_name ||
         u.user_metadata?.name ||
-        (email ? email.split('@')[0] : 'User');
+        u.email?.split('@')[0] ||
+        'User';
 
-      // Determine authoritative Avatar:
-      // Any uploaded avatar in Supabase Storage contains '/avatars/' in the URL!
-      const isDbUploadedAvatar = dbAvatar && dbAvatar.includes('/avatars/');
-      const isLocalUploadedAvatar = localAvatar && localAvatar.includes('/avatars/');
-      const isMetaUploadedAvatar = metaCustomAvatar && metaCustomAvatar.includes('/avatars/');
+      showToast({
+        type: 'success',
+        title: language === 'vi' ? 'Đăng nhập thành công' : language === 'lo' ? 'ເຂົ້າສູ່ລະບົບສຳເລັດ' : 'Sign In Successful',
+        message:
+          language === 'vi'
+            ? `Chào mừng ${name}! Bạn đã đăng nhập bằng Google thành công.`
+            : language === 'lo'
+            ? `ຍິນດີຕ້ອນຮັບ ${name}! ເຂົ້າສູ່ລະບົບດ້ວຍ Google ສຳເລັດແລ້ວ.`
+            : `Welcome, ${name}! Successfully signed in with Google.`,
+      });
 
-      const resolvedAvatar =
-        (isMetaUploadedAvatar ? metaCustomAvatar : null) ||
-        (isDbUploadedAvatar ? dbAvatar : null) ||
-        (isLocalUploadedAvatar ? localAvatar : null) ||
-        metaCustomAvatar ||
-        localAvatar ||
-        dbAvatar ||
-        u.user_metadata?.avatar_url ||
-        u.user_metadata?.picture ||
-        null;
+      triggerConfetti();
+    }
+  }, [language, showToast]);
 
-      // 4. If Google OAuth overwrote metadata or if custom metadata is missing:
-      // Re-sync back to Supabase Auth user_metadata AND public.profiles so it stays protected!
-      const isGoogleOAuth =
-        u.app_metadata?.provider === 'google' ||
-        u.identities?.some((i) => i.provider === 'google');
-
-      if (
-        isSupabaseConfigured &&
-        u.id &&
-        !u.id.startsWith('demo-') &&
-        (isGoogleOAuth ||
-          resolvedName !== u.user_metadata?.full_name ||
-          resolvedAvatar !== u.user_metadata?.avatar_url ||
-          !u.user_metadata?.custom_full_name)
-      ) {
-        setTimeout(async () => {
-          try {
-            await supabase.auth.updateUser({
-              data: {
-                full_name: resolvedName,
-                custom_full_name: resolvedName,
-                avatar_url: resolvedAvatar || '',
-                custom_avatar_url: resolvedAvatar || '',
-                has_custom_profile: true,
-              },
-            });
-
-            await supabase.from('profiles').upsert({
-              id: u.id,
-              email: u.email,
-              full_name: resolvedName,
-              avatar_url: resolvedAvatar,
-              updated_at: new Date().toISOString(),
-            });
-          } catch (reSyncErr) {
-            console.warn('Background profile re-sync error:', reSyncErr);
-          }
-        }, 50);
-      }
-
-      // Re-cache to localStorage under both UID and Email
-      if (resolvedName) {
-        localStorage.setItem(`moneydairy_user_name_${uid}`, resolvedName);
-        if (email) localStorage.setItem(`moneydairy_user_name_${email}`, resolvedName);
-      }
-      if (resolvedAvatar) {
-        localStorage.setItem(`moneydairy_avatar_${uid}`, resolvedAvatar);
-        if (email) localStorage.setItem(`moneydairy_avatar_${email}`, resolvedAvatar);
-      }
-
-      const finalUser = {
-        ...u,
-        user_metadata: {
-          ...(u.user_metadata || {}),
-          full_name: resolvedName,
-          custom_full_name: resolvedName,
-          avatar_url: resolvedAvatar || '',
-          custom_avatar_url: resolvedAvatar || '',
-          has_custom_profile: true,
-        },
-      };
-
-      return { resolvedUser: finalUser, resolvedAvatar };
-    };
-
-    const notifyOAuthSignIn = (u) => {
-      if (!u || typeof window === 'undefined') return;
-      const isOAuthPending = sessionStorage.getItem('moneydairy_oauth_login_pending');
-      const hasOAuthHash = window.location.hash.includes('access_token') || window.location.search.includes('code=');
-
-      if (isOAuthPending || hasOAuthHash) {
-        sessionStorage.removeItem('moneydairy_oauth_login_pending');
-        if (window.history?.replaceState && window.location.hash.includes('access_token')) {
-          window.history.replaceState(null, '', window.location.pathname);
-        }
-        const name =
-          u.user_metadata?.custom_full_name ||
-          u.user_metadata?.full_name ||
-          u.user_metadata?.name ||
-          u.email?.split('@')[0] ||
-          'User';
-
-        showToast({
-          type: 'success',
-          title: language === 'vi' ? 'Đăng nhập thành công' : language === 'lo' ? 'ເຂົ້າສູ່ລະບົບສຳເລັດ' : 'Sign In Successful',
-          message:
-            language === 'vi'
-              ? `Chào mừng ${name}! Bạn đã đăng nhập bằng Google thành công.`
-              : language === 'lo'
-              ? `ຍິນດີຕ້ອນຮັບ ${name}! ເຂົ້າສູ່ລະບົບດ້ວຍ Google ສຳເລັດແລ້ວ.`
-              : `Welcome, ${name}! Successfully signed in with Google.`,
-        });
-
-        triggerConfetti();
-      }
-    };
+  // 3. Initialize Supabase Auth Session listener
+  useEffect(() => {
+    let isMounted = true;
 
     const restoreSession = async () => {
       // Check if URL indicates password recovery link
@@ -1046,9 +1044,8 @@ export const FinanceProvider = ({ children }) => {
       isMounted = false;
       clearTimeout(safetyTimer);
     };
-  }, [fetchTransactions, language, showToast]);
+  }, [fetchTransactions, resolveUserProfile, notifyOAuthSignIn, language, showToast]);
 
-  // Demo user login (for 1-click test chips, biometric scan, or offline testing)
   // Demo user login (for 1-click test chips, biometric scan, or offline testing)
   const signInDemo = useCallback((accountType = 'alex') => {
     hideToast();

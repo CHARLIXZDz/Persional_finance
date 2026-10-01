@@ -1081,7 +1081,11 @@ export const FinanceProvider = ({ children }) => {
 
     localStorage.setItem('moneydairy_demo_user', JSON.stringify(demoUser));
 
-    // Fire celebration animation immediately!
+    startTransition(() => {
+      setUser(demoUser);
+    });
+
+    // Fire celebration animation and toast immediately on the authenticated dashboard!
     triggerConfetti();
 
     showToast({
@@ -1095,11 +1099,8 @@ export const FinanceProvider = ({ children }) => {
     });
 
     setTimeout(() => {
-      startTransition(() => {
-        setUser(demoUser);
-      });
       fetchTransactions(demoUser);
-    }, 400);
+    }, 120);
 
     return { success: true, user: demoUser };
   }, [language, showToast, hideToast, fetchTransactions]);
@@ -1335,7 +1336,14 @@ export const FinanceProvider = ({ children }) => {
         resolvedUser.user_metadata?.full_name ||
         resolvedUser.email;
 
-      // 1. Fire celebration fireworks & success toast together at the exact same moment!
+      // 1. Immediately transition into the authenticated dashboard smoothly!
+      startTransition(() => {
+        setUser(resolvedUser);
+        if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
+        setSession(data.session);
+      });
+
+      // 2. Fire celebration fireworks & success toast together at the exact same moment!
       triggerConfetti();
 
       showToast({
@@ -1354,15 +1362,10 @@ export const FinanceProvider = ({ children }) => {
             : `Welcome back, ${displayName}!`,
       });
 
-      // Allow user to enjoy fireworks burst apex on login card before transitioning (just like FaceID)
-      await new Promise((r) => setTimeout(r, 400));
-
-      startTransition(() => {
-        setUser(resolvedUser);
-        if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
-        setSession(data.session);
-      });
-      fetchTransactions(resolvedUser);
+      // Defer transactions query slightly so initial screen transition is buttery smooth
+      setTimeout(() => {
+        fetchTransactions(resolvedUser);
+      }, 120);
 
       return { success: true, user: resolvedUser };
     } catch (err) {
@@ -1425,7 +1428,14 @@ export const FinanceProvider = ({ children }) => {
         localStorage.removeItem('moneydairy_demo_user');
         const { resolvedUser, resolvedAvatar } = await resolveUserProfile(data.user);
 
-        // Fire celebration animation immediately!
+        // 1. Immediately transition into authenticated screen smoothly
+        startTransition(() => {
+          setUser(resolvedUser);
+          if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
+          setSession(data.session);
+        });
+
+        // 2. Fire celebration animation and toast simultaneously
         triggerConfetti();
 
         showToast({
@@ -1438,14 +1448,9 @@ export const FinanceProvider = ({ children }) => {
             : 'Welcome to MoneyDairy!',
         });
 
-        await new Promise((r) => setTimeout(r, 450));
-
-        startTransition(() => {
-          setUser(resolvedUser);
-          if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
-          setSession(data.session);
-        });
-        fetchTransactions(resolvedUser);
+        setTimeout(() => {
+          fetchTransactions(resolvedUser);
+        }, 120);
       }
 
       return { success: true, user: data.user, needsConfirmation };

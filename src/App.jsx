@@ -60,7 +60,7 @@ const AppContent = () => {
           </main>
         ) : (
           /* Main Authenticated App Screen */
-          <>
+          <div className="flex-1 flex flex-col h-full overflow-hidden animate-fade-in">
             {/* Header shown on Home, Analytics, and History (hidden in Settings & Reports to avoid duplicate profile) */}
             {currentTab !== 'settings' && currentTab !== 'reports' && <Header />}
 
@@ -77,7 +77,7 @@ const AppContent = () => {
 
             {/* Add Transaction Modal / Bottom Sheet */}
             <AddTransactionModal />
-          </>
+          </div>
         )}
       </div>
     </div>

@@ -379,6 +379,7 @@ export const FinanceProvider = ({ children }) => {
         localStorage.setItem(`moneydairy_user_name_${uid}`, trimmed);
         if (email) {
           localStorage.setItem(`moneydairy_user_name_${email}`, trimmed);
+          localStorage.setItem(`moneydairy_user_email_for_${trimmed.toLowerCase()}`, email);
         }
 
         setUser((prev) => {
@@ -1076,35 +1077,150 @@ export const FinanceProvider = ({ children }) => {
     return { success: true, user: demoUser };
   }, [language, showToast, fetchTransactions]);
 
-  // 3. Auth Actions: Sign In, Sign Up, Sign Out
-  const signIn = async (email, password) => {
-    const trimmedEmail = email.trim().toLowerCase();
+  // 3. Helper to resolve an Email from an Identifier (Email or Username)
+  const resolveEmailFromIdentifier = useCallback(async (identifier) => {
+    const raw = (identifier || '').trim();
+    if (!raw) return null;
+
+    // A. If identifier contains '@', it is directly an email address
+    if (raw.includes('@')) {
+      return raw.toLowerCase();
+    }
+
+    const lower = raw.toLowerCase();
+
+    // B. Fast demo accounts shortcut
+    if (lower === 'alex' || lower === 'alex.phommaseng') {
+      return 'alex.phommaseng@gmail.com';
+    }
+    if (lower === 'guest') {
+      return 'guest@moneydairy.app';
+    }
+
+    // C. Check local cache (fastest lookup on current device)
+    const cachedEmail = localStorage.getItem(`moneydairy_user_email_for_${lower}`);
+    if (cachedEmail) {
+      return cachedEmail;
+    }
+
+    // D. Query Supabase public.profiles table
+    if (isSupabaseConfigured) {
+      // Step 1: Attempt lookup on 'username' column (if table has this column)
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('email')
+          .ilike('username', raw)
+          .maybeSingle();
+        if (!error && data?.email) {
+          const resolved = data.email.toLowerCase().trim();
+          localStorage.setItem(`moneydairy_user_email_for_${lower}`, resolved);
+          return resolved;
+        }
+      } catch (err) {
+        // column username might not exist, ignore and proceed to full_name
+      }
+
+      // Step 2: Match on 'full_name' column (case-insensitive)
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('email')
+          .ilike('full_name', raw)
+          .maybeSingle();
+        if (!error && data?.email) {
+          const resolved = data.email.toLowerCase().trim();
+          localStorage.setItem(`moneydairy_user_email_for_${lower}`, resolved);
+          return resolved;
+        }
+      } catch (err) {
+        console.warn('Profile full_name lookup error:', err);
+      }
+
+      // Step 3: Match on email prefix (e.g. user entered "ekalat8" or "mrkoong1234")
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('email')
+          .ilike('email', `${raw}@%`)
+          .maybeSingle();
+        if (!error && data?.email) {
+          const resolved = data.email.toLowerCase().trim();
+          localStorage.setItem(`moneydairy_user_email_for_${lower}`, resolved);
+          return resolved;
+        }
+      } catch (err) {
+        console.warn('Profile email prefix lookup error:', err);
+      }
+    }
+
+    return null;
+  }, []);
+
+  // 4. Auth Actions: Sign In, Sign Up, Sign Out
+  const signIn = async (identifier, password) => {
+    const trimmedInput = (identifier || '').trim();
+    if (!trimmedInput) {
+      return {
+        success: false,
+        error:
+          language === 'vi'
+            ? 'Vui lòng nhập email hoặc tên đăng nhập'
+            : language === 'lo'
+            ? 'ກະລຸນາປ້ອນອີເມວ ຫຼື ຊື່ຜູ້ໃຊ້'
+            : 'Please enter your email or username',
+      };
+    }
+
+    const lowerInput = trimmedInput.toLowerCase();
 
     // Check if logging in as demo account or offline test credentials
     if (
-      (trimmedEmail === 'alex@moneydairy.app' || trimmedEmail === 'alex.phommaseng@gmail.com') &&
+      (lowerInput === 'alex' ||
+        lowerInput === 'alex.phommaseng' ||
+        lowerInput === 'alex@moneydairy.app' ||
+        lowerInput === 'alex.phommaseng@gmail.com') &&
       (password === 'demo' || password === 'Password123!' || password === '123456')
     ) {
       return signInDemo('alex');
     }
 
     if (
-      trimmedEmail === 'guest@moneydairy.app' &&
+      (lowerInput === 'guest' || lowerInput === 'guest@moneydairy.app') &&
       (password === 'demo' || password === 'Password123!' || password === '123456')
     ) {
       return signInDemo('guest');
     }
 
+    // Resolve identifier (Username or Email) to actual Email address
+    let targetEmail = trimmedInput;
+    if (!trimmedInput.includes('@')) {
+      targetEmail = await resolveEmailFromIdentifier(trimmedInput);
+      if (!targetEmail) {
+        return {
+          success: false,
+          error:
+            language === 'vi'
+              ? `Không tìm thấy tài khoản với tên đăng nhập "${trimmedInput}". Vui lòng kiểm tra lại hoặc nhập địa chỉ email!`
+              : language === 'lo'
+              ? `ບໍ່ພົບຊື່ຜູ້ໃຊ້ "${trimmedInput}" ໃນລະບົບ. ກະລຸນາກວດສອບຄືນ ຫຼື ປ້ອນທີ່ຢູ່ອີເມວ!`
+              : `Username "${trimmedInput}" not found. Please verify your username or sign in with your email address.`,
+        };
+      }
+    } else {
+      targetEmail = lowerInput;
+    }
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
+        email: targetEmail,
         password,
       });
 
       if (error) {
         // If Supabase fails but password matches demo fallback
         if (
-          (trimmedEmail.includes('alex') || trimmedEmail.includes('moneydairy')) &&
+          (lowerInput.includes('alex') || lowerInput.includes('moneydairy')) &&
           (password === 'demo' || password === 'Password123!')
         ) {
           return signInDemo('alex');
@@ -1113,34 +1229,70 @@ export const FinanceProvider = ({ children }) => {
       }
 
       localStorage.removeItem('moneydairy_demo_user');
-      setUser(data.user);
+
+      // Cache mapping username -> email for fast future lookups
+      if (data?.user?.email) {
+        const uEmail = data.user.email.toLowerCase().trim();
+        const uName =
+          data.user.user_metadata?.custom_full_name ||
+          data.user.user_metadata?.full_name ||
+          data.user.user_metadata?.name;
+        if (uName) {
+          localStorage.setItem(`moneydairy_user_email_for_${uName.toLowerCase().trim()}`, uEmail);
+        }
+        const uPrefix = uEmail.split('@')[0];
+        if (uPrefix) {
+          localStorage.setItem(`moneydairy_user_email_for_${uPrefix.toLowerCase().trim()}`, uEmail);
+        }
+      }
+
+      // Resolve complete user profile (protects custom name & avatar)
+      const { resolvedUser, resolvedAvatar } = await resolveUserProfile(data.user);
+      setUser(resolvedUser);
+      if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
       setSession(data.session);
-      fetchTransactions(data.user);
+      fetchTransactions(resolvedUser);
+
+      const displayName =
+        resolvedUser.user_metadata?.custom_full_name ||
+        resolvedUser.user_metadata?.full_name ||
+        resolvedUser.email;
 
       showToast({
         type: 'success',
-        title: language === 'vi' ? 'Đăng nhập thành công' : language === 'lo' ? 'ເຂົ້າສູ່ລະບົບສຳເລັດ' : 'Sign In Successful',
-        message: language === 'vi'
-          ? `Chào mừng ${data.user.user_metadata?.full_name || data.user.email} quay trở lại!`
-          : language === 'lo'
-          ? `ຍິນດີຕ້ອນຮັບ ${data.user.user_metadata?.full_name || data.user.email} ກັບມາ!`
-          : `Welcome back, ${data.user.user_metadata?.full_name || data.user.email}!`,
+        title:
+          language === 'vi'
+            ? 'Đăng nhập thành công'
+            : language === 'lo'
+            ? 'ເຂົ້າສູ່ລະບົບສຳເລັດ'
+            : 'Sign In Successful',
+        message:
+          language === 'vi'
+            ? `Chào mừng ${displayName} quay trở lại!`
+            : language === 'lo'
+            ? `ຍິນດີຕ້ອນຮັບ ${displayName} ກັບມາ!`
+            : `Welcome back, ${displayName}!`,
       });
 
-      return { success: true, user: data.user };
+      return { success: true, user: resolvedUser };
     } catch (err) {
       return { success: false, error: err.message };
     }
   };
 
   const signUp = async (email, password, fullName) => {
+    const trimmedEmail = email.trim().toLowerCase();
+    const cleanName = (fullName || 'User').trim();
+
     try {
       const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: trimmedEmail,
         password,
         options: {
           data: {
-            full_name: fullName || 'User',
+            full_name: cleanName,
+            custom_full_name: cleanName,
+            has_custom_name: true,
           },
         },
       });
@@ -1149,13 +1301,38 @@ export const FinanceProvider = ({ children }) => {
         return { success: false, error: error.message };
       }
 
+      // Pre-cache username -> email mapping
+      if (cleanName) {
+        localStorage.setItem(`moneydairy_user_email_for_${cleanName.toLowerCase()}`, trimmedEmail);
+      }
+      const prefix = trimmedEmail.split('@')[0];
+      if (prefix) {
+        localStorage.setItem(`moneydairy_user_email_for_${prefix.toLowerCase()}`, trimmedEmail);
+      }
+
+      // Also upsert to public.profiles table
+      if (data?.user?.id && isSupabaseConfigured) {
+        try {
+          await supabase.from('profiles').upsert({
+            id: data.user.id,
+            email: trimmedEmail,
+            full_name: cleanName,
+            updated_at: new Date().toISOString(),
+          });
+        } catch (profileErr) {
+          console.warn('Error creating profile on signup:', profileErr);
+        }
+      }
+
       const needsConfirmation = !data.session && data.user && !data.user.confirmed_at;
 
       if (!needsConfirmation && data.user) {
         localStorage.removeItem('moneydairy_demo_user');
-        setUser(data.user);
+        const { resolvedUser, resolvedAvatar } = await resolveUserProfile(data.user);
+        setUser(resolvedUser);
+        if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
         setSession(data.session);
-        fetchTransactions(data.user);
+        fetchTransactions(resolvedUser);
 
         showToast({
           type: 'success',
@@ -1197,19 +1374,22 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
-  // Reset Password for Email
+  // Reset Password for Email or Username
   const resetPassword = useCallback(
-    async (emailToReset) => {
-      const trimmed = (emailToReset || '').trim();
+    async (identifier) => {
+      const trimmed = (identifier || '').trim();
       if (!trimmed) {
-        return { success: false, error: 'Email is required' };
+        return { success: false, error: 'Email or username is required' };
       }
 
       // Demo account handling
+      const lower = trimmed.toLowerCase();
       if (
-        trimmed === 'alex@moneydairy.app' ||
-        trimmed === 'alex.phommaseng@gmail.com' ||
-        trimmed === 'guest@moneydairy.app'
+        lower === 'alex' ||
+        lower === 'alex@moneydairy.app' ||
+        lower === 'alex.phommaseng@gmail.com' ||
+        lower === 'guest' ||
+        lower === 'guest@moneydairy.app'
       ) {
         return {
           success: true,
@@ -1217,24 +1397,42 @@ export const FinanceProvider = ({ children }) => {
         };
       }
 
+      // Resolve username to email if necessary
+      let emailToReset = trimmed;
+      if (!trimmed.includes('@')) {
+        const found = await resolveEmailFromIdentifier(trimmed);
+        if (!found) {
+          return {
+            success: false,
+            error:
+              language === 'vi'
+                ? `Không tìm thấy tài khoản với tên "${trimmed}". Vui lòng nhập địa chỉ email!`
+                : language === 'lo'
+                ? `ບໍ່ພົບຊື່ "${trimmed}" ໃນລະບົບ. ກະລຸນາປ້ອນທີ່ຢູ່ອີເມວ!`
+                : `Account with username "${trimmed}" not found. Please enter your email address.`,
+          };
+        }
+        emailToReset = found;
+      }
+
       try {
         if (isSupabaseConfigured) {
-          const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+          const { error } = await supabase.auth.resetPasswordForEmail(emailToReset, {
             redirectTo: window.location.origin,
           });
 
           if (error) {
             return { success: false, error: error.message };
           }
-          return { success: true };
+          return { success: true, email: emailToReset };
         }
 
-        return { success: true };
+        return { success: true, email: emailToReset };
       } catch (err) {
         return { success: false, error: err.message };
       }
     },
-    []
+    [language, resolveEmailFromIdentifier]
   );
 
   // Google OAuth Sign In / Sign Up
@@ -1649,6 +1847,7 @@ export const FinanceProvider = ({ children }) => {
         signUp,
         signOut,
         resetPassword,
+        resolveEmailFromIdentifier,
         signInWithGoogle,
         updateUserName,
         isPasswordRecovery,

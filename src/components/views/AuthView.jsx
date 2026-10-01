@@ -10,6 +10,7 @@ export const AuthView = () => {
     signInDemo,
     signUp,
     resetPassword,
+    resolveEmailFromIdentifier,
     signInWithGoogle,
     language,
     setLanguage,
@@ -428,11 +429,19 @@ export const AuthView = () => {
                 {getAuthText('labelEmail')}
               </label>
               <div className="relative flex items-center">
-                <Mail
-                  className={`w-4 h-4 absolute left-3.5 transition-colors pointer-events-none ${
-                    fieldErrors.email ? 'text-rose-500' : 'text-slate-400'
-                  }`}
-                />
+                {email && !email.includes('@') ? (
+                  <User
+                    className={`w-4 h-4 absolute left-3.5 transition-colors pointer-events-none ${
+                      fieldErrors.email ? 'text-rose-500' : 'text-emerald-500'
+                    }`}
+                  />
+                ) : (
+                  <Mail
+                    className={`w-4 h-4 absolute left-3.5 transition-colors pointer-events-none ${
+                      fieldErrors.email ? 'text-rose-500' : 'text-slate-400'
+                    }`}
+                  />
+                )}
                 <input
                   type="text"
                   value={email}
@@ -440,8 +449,15 @@ export const AuthView = () => {
                     setEmail(e.target.value);
                     if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' });
                   }}
-                  placeholder="example@gmail.com"
-                  autoComplete="email"
+                  placeholder={
+                    getAuthText('placeholderEmailOrUser') ||
+                    (language === 'vi'
+                      ? 'Email hoặc tên đăng nhập'
+                      : language === 'lo'
+                      ? 'ອີເມວ ຫຼື ຊື່ຜູ້ໃຊ້'
+                      : 'Email or Username')
+                  }
+                  autoComplete="username"
                   className={`w-full pl-10 pr-4 py-3 bg-slate-100/90 dark:bg-slate-900/80 border ${
                     fieldErrors.email
                       ? 'border-rose-500 ring-2 ring-rose-500/20'
@@ -462,8 +478,13 @@ export const AuthView = () => {
                 </label>
                 <button
                   type="button"
-                  onClick={() => {
-                    setForgotEmail(email || 'alex@moneydairy.app');
+                  onClick={async () => {
+                    let target = (email || '').trim();
+                    if (target && !target.includes('@')) {
+                      const resolved = await resolveEmailFromIdentifier(target);
+                      if (resolved) target = resolved;
+                    }
+                    setForgotEmail(target || 'alex@moneydairy.app');
                     setIsForgotModalOpen(true);
                   }}
                   className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline transition-opacity"
@@ -577,7 +598,7 @@ export const AuthView = () => {
             {/* Email */}
             <div className="space-y-1">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                {getAuthText('labelEmail')}
+                {getAuthText('labelEmailOnly') || 'Email'}
               </label>
               <div className="relative flex items-center">
                 <Mail className="w-4 h-4 absolute left-3.5 text-slate-400 pointer-events-none" />

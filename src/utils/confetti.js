@@ -169,7 +169,7 @@ export const triggerConfetti = () => {
 
   if (cannon) {
     try {
-      // 1. Primary burst matching home_login.js
+      // 1. Primary center burst (matching prototype)
       cannon({
         particleCount: 80,
         spread: 70,
@@ -179,19 +179,43 @@ export const triggerConfetti = () => {
         zIndex: 999999,
       });
 
-      // 2. Secondary wider burst after 160ms
+      // 2. Dual left & right fireworks cross-blasts after 140ms (authentic fireworks celebration)
       setTimeout(() => {
         try {
           cannon({
-            particleCount: 50,
-            spread: 85,
-            origin: { y: 0.6 },
+            particleCount: 45,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0.15, y: 0.7 },
+            colors: BRAND_COLORS,
+            disableForReducedMotion: false,
+            zIndex: 999999,
+          });
+          cannon({
+            particleCount: 45,
+            angle: 120,
+            spread: 55,
+            origin: { x: 0.85, y: 0.7 },
             colors: BRAND_COLORS,
             disableForReducedMotion: false,
             zIndex: 999999,
           });
         } catch {}
-      }, 160);
+      }, 140);
+
+      // 3. Wide celebratory cascade after 280ms
+      setTimeout(() => {
+        try {
+          cannon({
+            particleCount: 65,
+            spread: 95,
+            origin: { y: 0.55 },
+            colors: BRAND_COLORS,
+            disableForReducedMotion: false,
+            zIndex: 999999,
+          });
+        } catch {}
+      }, 280);
 
       fired = true;
     } catch (err) {

@@ -77,6 +77,9 @@ export const FinanceProvider = ({ children }) => {
   const userRef = useRef(user);
   userRef.current = user;
 
+  // Ref flag indicating active manual form sign-in in progress
+  const isManualAuthRef = useRef(false);
+
   // Toast notification state
   const [toast, setToast] = useState(null);
 
@@ -1012,10 +1015,15 @@ export const FinanceProvider = ({ children }) => {
         setSession(session);
         if (session?.user) {
           const { resolvedUser, resolvedAvatar } = await resolveUserProfile(session.user);
-          setUser(resolvedUser);
-          if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
-          fetchTransactions(resolvedUser);
-          notifyOAuthSignIn(resolvedUser);
+          if (event === 'SIGNED_IN') {
+            triggerConfetti();
+          }
+          if (!isManualAuthRef.current) {
+            setUser(resolvedUser);
+            if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
+            fetchTransactions(resolvedUser);
+            notifyOAuthSignIn(resolvedUser);
+          }
         } else {
           const storedDemo = localStorage.getItem('moneydairy_demo_user');
           if (storedDemo) {
@@ -1220,6 +1228,7 @@ export const FinanceProvider = ({ children }) => {
       targetEmail = lowerInput;
     }
 
+    isManualAuthRef.current = true;
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: targetEmail,
@@ -1236,6 +1245,9 @@ export const FinanceProvider = ({ children }) => {
         }
         return { success: false, error: error.message };
       }
+
+      // 1. Immediately trigger celebration fireworks like FaceID!
+      triggerConfetti();
 
       localStorage.removeItem('moneydairy_demo_user');
 
@@ -1258,7 +1270,7 @@ export const FinanceProvider = ({ children }) => {
       // Resolve complete user profile (protects custom name & avatar)
       const { resolvedUser, resolvedAvatar } = await resolveUserProfile(data.user);
 
-      // 1. Immediately trigger celebration confetti animation on current view!
+      // 2. Extra burst of fireworks on verified profile
       triggerConfetti();
 
       const displayName =
@@ -1282,7 +1294,7 @@ export const FinanceProvider = ({ children }) => {
             : `Welcome back, ${displayName}!`,
       });
 
-      // 2. Allow user to see the confetti explosion on the login screen before switching to Dashboard
+      // 3. Allow user to enjoy fireworks burst on login card before transitioning (just like FaceID)
       await new Promise((r) => setTimeout(r, 450));
 
       setUser(resolvedUser);
@@ -1293,6 +1305,8 @@ export const FinanceProvider = ({ children }) => {
       return { success: true, user: resolvedUser };
     } catch (err) {
       return { success: false, error: err.message };
+    } finally {
+      isManualAuthRef.current = false;
     }
   };
 

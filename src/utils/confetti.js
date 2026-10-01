@@ -2,19 +2,35 @@ import confettiPackage from 'canvas-confetti';
 
 /**
  * MoneyDairy Celebration Confetti Engine
- * - Main-thread rendering (useWorker: false) to prevent iOS Safari / WebKit OffscreenCanvas bugs.
+ * - Utilizes offscreen Web Worker rendering (OffscreenCanvas) for silky-smooth 60-120fps physics,
+ *   completely independent of React DOM reconciliation and main-thread view transitions.
+ * - Auto-detects environment: Worker Engine -> Main Thread Canvas -> Native 2D Canvas Fallback.
  * - Forces disableForReducedMotion: false so accessibility settings never suppress celebrations.
- * - Multi-layered fallback: Canvas-Confetti -> Native 2D Canvas Particle Engine.
- * - Persistent global canvas (z-index: 999999) surviving all React route / view changes.
+ * - Strictly debounce-locked to prevent duplicate bursts or GPU lag.
  */
 
 const BRAND_COLORS = ['#10B981', '#6366F1', '#3B82F6', '#F59E0B'];
 
-let activeCanvasInstance = null;
-let activeConfettiCannon = null;
+/**
+ * Retrieves the primary canvas-confetti fire function.
+ * Prioritizes window.confetti (from CDN browser bundle) and npm package default fire.
+ * The default fire function automatically utilizes Web Worker & OffscreenCanvas for ultra-smooth 60fps.
+ */
+const getFireFunction = () => {
+  if (typeof window !== 'undefined' && typeof window.confetti === 'function') {
+    return window.confetti;
+  }
+  if (typeof confettiPackage === 'function') {
+    return confettiPackage;
+  }
+  if (typeof confettiPackage?.default === 'function') {
+    return confettiPackage.default;
+  }
+  return null;
+};
 
 /**
- * Retrieves or creates a guaranteed full-screen overlay canvas.
+ * Fallback: Retrieves or creates a guaranteed full-screen overlay canvas for native rendering.
  */
 export const getGlobalCanvas = () => {
   if (typeof document === 'undefined') return null;
@@ -37,50 +53,8 @@ export const getGlobalCanvas = () => {
 };
 
 /**
- * Returns a configured main-thread confetti cannon instance.
- */
-const getCannon = () => {
-  if (typeof window === 'undefined') return null;
-
-  const canvas = getGlobalCanvas();
-  if (!canvas) return null;
-
-  if (activeConfettiCannon && activeCanvasInstance === canvas) {
-    return activeConfettiCannon;
-  }
-
-  // Find confetti.create
-  const createFn =
-    (typeof window.confetti?.create === 'function' && window.confetti.create) ||
-    (typeof confettiPackage?.create === 'function' && confettiPackage.create) ||
-    (typeof confettiPackage?.default?.create === 'function' && confettiPackage.default.create) ||
-    null;
-
-  if (createFn) {
-    try {
-      activeConfettiCannon = createFn(canvas, {
-        resize: true,
-        useWorker: false, // Critical for iOS Safari / WebKit stability
-        disableForReducedMotion: false, // Ensure animation always displays
-      });
-      activeCanvasInstance = canvas;
-      return activeConfettiCannon;
-    } catch (e) {
-      console.warn('Failed to bind canvas-confetti cannon:', e);
-    }
-  }
-
-  // Fallback to global confetti function if create() wasn't supported
-  if (typeof window.confetti === 'function') return window.confetti;
-  if (typeof confettiPackage === 'function') return confettiPackage;
-  if (typeof confettiPackage?.default === 'function') return confettiPackage.default;
-
-  return null;
-};
-
-/**
  * Built-in pure 2D Canvas particle animation fallback.
- * Zero dependencies, works on 100% of browsers even if external libraries fail.
+ * Zero external dependencies, runs at 60fps even if external libraries fail.
  */
 const runNativeCanvasBurst = (canvas) => {
   if (!canvas || typeof window === 'undefined') return;
@@ -96,12 +70,12 @@ const runNativeCanvasBurst = (canvas) => {
   canvas.style.height = `${h}px`;
 
   const particles = [];
-  const count = 80;
+  const count = 75;
   const originX = (w * dpr) / 2;
   const originY = (h * dpr) * 0.65;
 
   for (let i = 0; i < count; i++) {
-    const angle = ((Math.random() * 80 + 50) * Math.PI) / 180; // Erupting upwards
+    const angle = ((Math.random() * 80 + 50) * Math.PI) / 180; // Erupting upwards in celebratory fan
     const speed = (Math.random() * 16 + 10) * dpr;
     const spreadX = (Math.random() - 0.5) * 1.6;
     particles.push({
@@ -157,50 +131,65 @@ const runNativeCanvasBurst = (canvas) => {
 };
 
 let lastFireTime = 0;
-const CONFETTI_COOLDOWN_MS = 2000;
+const CONFETTI_COOLDOWN_MS = 1800;
 
 /**
  * Triggers the celebration animation:
- * Exactly ONE ultra-smooth, silky, crisp burst (72 particles, spread 72, gravity 0.82)
- * Protected by a 2.0s debounce lock to prevent lag, stutter, or duplicate firing.
+ * Exactly ONE ultra-smooth, silky, crisp burst (75 particles, spread 70, gravity 0.82)
+ * Rendered via Web Worker & OffscreenCanvas for stutter-free 60fps performance across view transitions.
+ * Protected by a 1.8s debounce lock to prevent lag, stutter, or duplicate firing.
  */
-export const triggerConfetti = () => {
+export const triggerConfetti = (customOptions = {}) => {
   if (typeof window === 'undefined') return;
 
   const now = Date.now();
   if (now - lastFireTime < CONFETTI_COOLDOWN_MS) {
-    // Strictly block duplicate triggers within 2s to prevent lag & double firing
+    // Strictly block duplicate triggers within debounce window to prevent lag & double firing
     return;
   }
   lastFireTime = now;
 
-  const cannon = getCannon();
+  const fire = getFireFunction();
   let fired = false;
 
-  if (cannon) {
+  const celebrationConfig = {
+    particleCount: 75,
+    spread: 70,
+    startVelocity: 42,
+    origin: { y: 0.65 },
+    colors: BRAND_COLORS,
+    gravity: 0.82,  // Elegant floating descent without jarring drops
+    ticks: 240,     // Smooth 60fps fade out duration
+    scalar: 1.05,   // Crisp, clear particle size
+    drift: 0,
+    shapes: ['square', 'circle'],
+    disableForReducedMotion: false,
+    zIndex: 999999,
+    ...customOptions,
+  };
+
+  if (fire) {
     try {
-      // Exactly 1 silky-smooth burst with natural physics & gentle float
-      cannon({
-        particleCount: 72,
-        spread: 72,
-        startVelocity: 42,
-        origin: { y: 0.65 },
-        colors: BRAND_COLORS,
-        gravity: 0.82, // Elegant floating descent without jarring falls
-        ticks: 250,    // Smooth 60fps fade out duration
-        scalar: 1.05,  // Crisp, clear particle size
-        drift: 0,
-        shapes: ['square', 'circle'],
-        disableForReducedMotion: false,
-        zIndex: 999999,
-      });
+      fire(celebrationConfig);
       fired = true;
     } catch (err) {
-      console.warn('Confetti cannon fire failed, falling back to native canvas:', err);
+      console.warn('Primary confetti fire failed, trying fallback cannon:', err);
+      // Fallback try with explicit canvas binding if direct fire threw
+      try {
+        const createFn = window.confetti?.create || confettiPackage?.create;
+        const canvas = getGlobalCanvas();
+        if (createFn && canvas) {
+          const cannon = createFn(canvas, { resize: true, useWorker: false });
+          cannon(celebrationConfig);
+          fired = true;
+        }
+      } catch (cannonErr) {
+        console.warn('Canvas cannon fallback failed:', cannonErr);
+      }
     }
   }
 
-  // Guaranteed fallback: If cannon wasn't available or failed, run native canvas burst
+  // Guaranteed fallback: If canvas-confetti failed completely, run native 2D canvas burst
   if (!fired) {
     runNativeCanvasBurst(getGlobalCanvas());
   }
@@ -210,10 +199,10 @@ export const triggerFireworks = triggerConfetti;
 
 export const triggerQuickBurst = () => {
   if (typeof window === 'undefined') return;
-  const cannon = getCannon();
-  if (cannon) {
+  const fire = getFireFunction();
+  if (fire) {
     try {
-      cannon({
+      fire({
         particleCount: 45,
         spread: 60,
         origin: { y: 0.75 },

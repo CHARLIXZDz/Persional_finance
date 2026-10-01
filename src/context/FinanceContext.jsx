@@ -80,6 +80,9 @@ export const FinanceProvider = ({ children }) => {
   // Ref flag indicating active manual form sign-in in progress
   const isManualAuthRef = useRef(false);
 
+  // Ref flag indicating active sign-out in progress
+  const isLoggingOutRef = useRef(false);
+
   // Toast notification state
   const [toast, setToast] = useState(null);
 
@@ -937,11 +940,23 @@ export const FinanceProvider = ({ children }) => {
     }
   }, [language, showToast]);
 
-  // 3. Initialize Supabase Auth Session listener
+  // Stable refs for background auth listener
+  const fetchTransactionsRef = useRef(fetchTransactions);
+  useEffect(() => { fetchTransactionsRef.current = fetchTransactions; }, [fetchTransactions]);
+
+  const resolveUserProfileRef = useRef(resolveUserProfile);
+  useEffect(() => { resolveUserProfileRef.current = resolveUserProfile; }, [resolveUserProfile]);
+
+  const notifyOAuthSignInRef = useRef(notifyOAuthSignIn);
+  useEffect(() => { notifyOAuthSignInRef.current = notifyOAuthSignIn; }, [notifyOAuthSignIn]);
+
+  // 3. Initialize Supabase Auth Session listener (Mount only: avoids re-triggering session restoration)
   useEffect(() => {
     let isMounted = true;
 
     const restoreSession = async () => {
+      if (isLoggingOutRef.current) return;
+
       // Check if URL indicates password recovery link
       if (
         typeof window !== 'undefined' &&
@@ -955,14 +970,16 @@ export const FinanceProvider = ({ children }) => {
       if (isSupabaseConfigured) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
+          if (isLoggingOutRef.current) return;
           if (session?.user && isMounted) {
-            const { resolvedUser, resolvedAvatar } = await resolveUserProfile(session.user);
+            const { resolvedUser, resolvedAvatar } = await resolveUserProfileRef.current(session.user);
+            if (isLoggingOutRef.current) return;
             setSession(session);
             setUser(resolvedUser);
             if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
             setIsAuthLoading(false);
-            fetchTransactions(resolvedUser);
-            notifyOAuthSignIn(resolvedUser);
+            fetchTransactionsRef.current(resolvedUser);
+            notifyOAuthSignInRef.current(resolvedUser);
             return;
           }
         } catch (e) {
@@ -972,13 +989,15 @@ export const FinanceProvider = ({ children }) => {
 
       // Check local demo user session fallback
       try {
+        if (isLoggingOutRef.current) return;
         const storedDemo = localStorage.getItem('moneydairy_demo_user');
         if (storedDemo && isMounted) {
           const parsed = JSON.parse(storedDemo);
-          const { resolvedUser, resolvedAvatar } = await resolveUserProfile(parsed);
+          const { resolvedUser, resolvedAvatar } = await resolveUserProfileRef.current(parsed);
+          if (isLoggingOutRef.current) return;
           setUser(resolvedUser);
           if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
-          fetchTransactions(resolvedUser);
+          fetchTransactionsRef.current(resolvedUser);
         } else if (isMounted) {
           setUser(null);
           setTransactions([]);
@@ -1007,24 +1026,24 @@ export const FinanceProvider = ({ children }) => {
     if (isSupabaseConfigured) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (!isMounted) return;
-        if (event === 'PASSWORD_RECOVERY') {
-          setIsPasswordRecovery(true);
-        }
-        if (event === 'SIGNED_OUT') {
+        if (isLoggingOutRef.current || event === 'SIGNED_OUT') {
           setUser(null);
           setSession(null);
           setTransactions([]);
           setIsAuthLoading(false);
           return;
         }
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+        }
         setSession(session);
-        if (session?.user) {
-          const { resolvedUser, resolvedAvatar } = await resolveUserProfile(session.user);
-          if (!isManualAuthRef.current) {
+        if (session?.user && !isLoggingOutRef.current) {
+          const { resolvedUser, resolvedAvatar } = await resolveUserProfileRef.current(session.user);
+          if (!isManualAuthRef.current && !isLoggingOutRef.current) {
             setUser(resolvedUser);
             if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
-            fetchTransactions(resolvedUser);
-            notifyOAuthSignIn(resolvedUser);
+            fetchTransactionsRef.current(resolvedUser);
+            notifyOAuthSignInRef.current(resolvedUser);
           }
         } else {
           setUser(null);
@@ -1044,7 +1063,7 @@ export const FinanceProvider = ({ children }) => {
       isMounted = false;
       clearTimeout(safetyTimer);
     };
-  }, [fetchTransactions, resolveUserProfile, notifyOAuthSignIn, language, showToast]);
+  }, []);
 
   // Demo user login (for 1-click test chips, biometric scan, or offline testing)
   const signInDemo = useCallback((accountType = 'alex') => {
@@ -1430,17 +1449,29 @@ export const FinanceProvider = ({ children }) => {
   };
 
   const signOut = useCallback(async () => {
+    isLoggingOutRef.current = true;
+
     // 1. Instantly clear user and session states (Immediate UI response, 0ms delay)
     setUser(null);
     setSession(null);
     setTransactions([]);
+    setAvatarUrl(null);
     setCurrentTab('dashboard');
 
-    // 2. Clear all local storage credentials immediately
+    // 2. Clear all credentials and Supabase auth keys from storage
     try {
-      localStorage.removeItem('moneydairy_demo_user');
-      localStorage.removeItem('moneydairy_user');
-      localStorage.removeItem('moneydairy_auth_token');
+      if (typeof window !== 'undefined' && window.localStorage) {
+        Object.keys(localStorage).forEach((key) => {
+          if (
+            key.startsWith('sb-') ||
+            key.startsWith('moneydairy_demo_user') ||
+            key.startsWith('moneydairy_user') ||
+            key.startsWith('moneydairy_auth_token')
+          ) {
+            localStorage.removeItem(key);
+          }
+        });
+      }
       sessionStorage.clear();
     } catch (e) {
       console.warn('Storage cleanup error:', e);
@@ -1461,11 +1492,22 @@ export const FinanceProvider = ({ children }) => {
     // 4. In background, inform Supabase (fire-and-forget, never traps or delays user)
     if (isSupabaseConfigured) {
       try {
+        await supabase.auth.signOut({ scope: 'local' });
         await supabase.auth.signOut();
       } catch (err) {
         console.warn('Background Supabase signout error:', err);
       }
     }
+
+    // Ensure state stays null
+    setUser(null);
+    setSession(null);
+    setTransactions([]);
+    setAvatarUrl(null);
+
+    setTimeout(() => {
+      isLoggingOutRef.current = false;
+    }, 1200);
   }, [language, showToast]);
 
   // Reset Password for Email or Username

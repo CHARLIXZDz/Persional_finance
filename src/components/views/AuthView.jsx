@@ -19,6 +19,7 @@ export const AuthView = () => {
     setIsDarkMode,
     t,
     showToast,
+    hideToast,
   } = useFinance();
 
   // Tab mode: 'signIn' | 'signUp'
@@ -91,6 +92,9 @@ export const AuthView = () => {
   // Handle Sign In Submit
   const handleSignInSubmit = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
+    hideToast();
+
     const errors = {};
 
     if (!email.trim()) {
@@ -105,17 +109,18 @@ export const AuthView = () => {
       return;
     }
 
-    setFieldErrors({});
     setIsLoading(true);
 
     try {
       const res = await signIn(email, password);
-      if (!res.success) {
+      if (res && !res.success) {
         setFieldErrors({
           form: res.error?.includes('Invalid login credentials')
             ? getAuthText('errInvalidCredentials') || 'Email or password incorrect'
             : res.error || 'Login failed',
         });
+      } else if (res && res.success) {
+        setFieldErrors({});
       }
     } catch (err) {
       setFieldErrors({ form: err.message });
@@ -195,7 +200,6 @@ export const AuthView = () => {
 
     setTimeout(() => {
       setIsBiometricModalOpen(false);
-      triggerConfetti();
       signInDemo('alex');
     }, 1500);
   };
@@ -495,7 +499,9 @@ export const AuthView = () => {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' });
+                    if (fieldErrors.email || fieldErrors.form) {
+                      setFieldErrors((prev) => ({ ...prev, email: '', form: '' }));
+                    }
                   }}
                   placeholder={
                     getAuthText('placeholderEmailOrUser') ||
@@ -551,7 +557,9 @@ export const AuthView = () => {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: '' });
+                    if (fieldErrors.password || fieldErrors.form) {
+                      setFieldErrors((prev) => ({ ...prev, password: '', form: '' }));
+                    }
                   }}
                   placeholder="••••••••"
                   autoComplete="current-password"
@@ -627,7 +635,9 @@ export const AuthView = () => {
                   value={fullName}
                   onChange={(e) => {
                     setFullName(e.target.value);
-                    if (fieldErrors.fullName) setFieldErrors({ ...fieldErrors, fullName: '' });
+                    if (fieldErrors.fullName || fieldErrors.form) {
+                      setFieldErrors((prev) => ({ ...prev, fullName: '', form: '' }));
+                    }
                   }}
                   placeholder="Alex Phommaseng"
                   autoComplete="name"
@@ -655,7 +665,9 @@ export const AuthView = () => {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' });
+                    if (fieldErrors.email || fieldErrors.form) {
+                      setFieldErrors((prev) => ({ ...prev, email: '', form: '' }));
+                    }
                   }}
                   placeholder="example@gmail.com"
                   autoComplete="email"
@@ -683,7 +695,9 @@ export const AuthView = () => {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: '' });
+                    if (fieldErrors.password || fieldErrors.form) {
+                      setFieldErrors((prev) => ({ ...prev, password: '', form: '' }));
+                    }
                   }}
                   placeholder="••••••••"
                   autoComplete="new-password"
@@ -763,8 +777,9 @@ export const AuthView = () => {
                   value={confirmPassword}
                   onChange={(e) => {
                     setConfirmPassword(e.target.value);
-                    if (fieldErrors.confirmPassword)
-                      setFieldErrors({ ...fieldErrors, confirmPassword: '' });
+                    if (fieldErrors.confirmPassword || fieldErrors.form) {
+                      setFieldErrors((prev) => ({ ...prev, confirmPassword: '', form: '' }));
+                    }
                   }}
                   placeholder="••••••••"
                   autoComplete="new-password"

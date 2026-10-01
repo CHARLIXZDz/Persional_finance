@@ -21,7 +21,7 @@ const AppContent = () => {
       <canvas
         id="global-confetti-canvas"
         aria-hidden="true"
-        className="fixed inset-0 w-full h-full pointer-events-none z-[999999]"
+        className="fixed inset-0 w-full h-full pointer-events-none z-[999999] transform-gpu will-change-transform"
         style={{
           position: 'fixed',
           top: 0,
@@ -30,6 +30,8 @@ const AppContent = () => {
           height: '100vh',
           pointerEvents: 'none',
           zIndex: 999999,
+          transform: 'translateZ(0)',
+          willChange: 'transform',
         }}
       />
 

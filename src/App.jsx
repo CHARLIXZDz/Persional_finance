@@ -17,6 +17,22 @@ const AppContent = () => {
 
   return (
     <div className="h-[100dvh] w-full bg-slate-100 dark:bg-[#0A0F1D] flex flex-col justify-start sm:justify-center items-center sm:py-6 relative overflow-hidden transition-colors duration-300">
+      {/* Global Celebration Canvas - Persistent Across All View Transitions */}
+      <canvas
+        id="global-confetti-canvas"
+        aria-hidden="true"
+        className="fixed inset-0 w-full h-full pointer-events-none z-[999999]"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          pointerEvents: 'none',
+          zIndex: 999999,
+        }}
+      />
+
       {/* Ambient background glow elements matching prototype (desktop only to prevent mobile status bar tinting & save GPU) */}
       <div
         className="hidden sm:block fixed -top-24 -left-20 w-96 h-96 rounded-full bg-emerald-500/20 blur-3xl transform-gpu will-change-transform pointer-events-none animate-float-orb z-0"

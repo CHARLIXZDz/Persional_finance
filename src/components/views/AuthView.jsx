@@ -82,11 +82,6 @@ export const AuthView = () => {
 
   const strength = getPasswordStrength(password);
 
-  // Trigger celebration fireworks
-  const triggerConfetti = () => {
-    triggerFireworks();
-  };
-
   // Switch tab helper
   const handleTabSwitch = (newTab) => {
     setTab(newTab);
@@ -359,6 +354,68 @@ export const AuthView = () => {
           </button>
         </div>
       </header>
+
+      {/* 2. QUICK DEMO BAR (Matches prototype exactly) */}
+      <div className="bg-emerald-500/10 dark:bg-emerald-500/15 border-b border-emerald-500/20 px-5 py-2 flex items-center gap-2.5 text-xs overflow-x-auto no-scrollbar">
+        <span className="text-emerald-600 dark:text-emerald-400 font-bold whitespace-nowrap text-[11px]">
+          {language === 'lo' ? 'ທົດລອງດ່ວນ:' : language === 'vi' ? 'Dùng thử nhanh:' : 'Quick Demo:'}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setTab('signIn');
+              setEmail('alex.phommaseng@gmail.com');
+              setPassword('demo');
+              setFieldErrors({});
+              showToast({
+                type: 'info',
+                title: 'Alex (Pro)',
+                message:
+                  language === 'lo'
+                    ? 'ປ້ອນຂໍ້ມູນ Alex (Pro) ສຳເລັດແລ້ວ! ກົດ "ເຂົ້າສູ່ລະບົບ" ໄດ້ເລີຍ'
+                    : language === 'vi'
+                    ? 'Đã điền thông tin Alex (Pro)! Bấm "Đăng nhập" để tiếp tục'
+                    : 'Alex (Pro) account filled! Tap "Sign In" to proceed',
+              });
+            }}
+            className="inline-flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-emerald-500/30 hover:border-emerald-500 px-2.5 py-1 rounded-full text-slate-800 dark:text-slate-200 text-[11px] font-semibold whitespace-nowrap transition-all shadow-sm active:scale-95 hover:-translate-y-0.5"
+            title="Auto-fill Alex (Pro) credentials"
+          >
+            <span className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-bold">
+              EP
+            </span>
+            <span>Alex (Pro)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setTab('signIn');
+              setEmail('guest@moneydairy.app');
+              setPassword('demo');
+              setFieldErrors({});
+              showToast({
+                type: 'info',
+                title: 'Guest Demo',
+                message:
+                  language === 'lo'
+                    ? 'ປ້ອນຂໍ້ມູນ Guest ສຳເລັດແລ້ວ! ກົດ "ເຂົ້າສູ່ລະບົບ" ໄດ້ເລີຍ'
+                    : language === 'vi'
+                    ? 'Đã điền thông tin Guest! Bấm "Đăng nhập" để tiếp tục'
+                    : 'Guest Demo account filled! Tap "Sign In" to proceed',
+              });
+            }}
+            className="inline-flex items-center gap-1.5 bg-white dark:bg-slate-900 border border-indigo-500/30 hover:border-indigo-500 px-2.5 py-1 rounded-full text-slate-800 dark:text-slate-200 text-[11px] font-semibold whitespace-nowrap transition-all shadow-sm active:scale-95 hover:-translate-y-0.5"
+            title="Auto-fill Guest Demo credentials"
+          >
+            <span className="w-4 h-4 rounded-full bg-indigo-500 text-white flex items-center justify-center text-[9px] font-bold">
+              GD
+            </span>
+            <span>Guest Demo</span>
+          </button>
+        </div>
+      </div>
 
       {/* 3. MAIN FORM BODY */}
       <main className="px-5 py-6 flex-1 flex flex-col justify-center">

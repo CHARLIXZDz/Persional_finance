@@ -3,6 +3,7 @@ import { INITIAL_TRANSACTIONS } from '../data/initialData';
 import { CURRENCIES, CATEGORIES } from '../data/categories';
 import { LANGUAGES, TRANSLATIONS } from '../data/translations';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { triggerFireworks } from '../utils/confetti';
 
 const FinanceContext = createContext(null);
 
@@ -934,6 +935,8 @@ export const FinanceProvider = ({ children }) => {
               ? `ຍິນດີຕ້ອນຮັບ ${name}! ເຂົ້າສູ່ລະບົບດ້ວຍ Google ສຳເລັດແລ້ວ.`
               : `Welcome, ${name}! Successfully signed in with Google.`,
         });
+
+        triggerFireworks();
       }
     };
 
@@ -1073,6 +1076,8 @@ export const FinanceProvider = ({ children }) => {
         ? `ຍິນດີຕ້ອນຮັບ ${demoUser.user_metadata.full_name} ກັບມາ!`
         : `Welcome back, ${demoUser.user_metadata.full_name}!`,
     });
+
+    triggerFireworks();
 
     return { success: true, user: demoUser };
   }, [language, showToast, fetchTransactions]);
@@ -1274,6 +1279,8 @@ export const FinanceProvider = ({ children }) => {
             : `Welcome back, ${displayName}!`,
       });
 
+      triggerFireworks();
+
       return { success: true, user: resolvedUser };
     } catch (err) {
       return { success: false, error: err.message };
@@ -1343,6 +1350,8 @@ export const FinanceProvider = ({ children }) => {
             ? 'ຍິນດີຕ້ອນຮັບສູ່ MoneyDairy!'
             : 'Welcome to MoneyDairy!',
         });
+
+        triggerFireworks();
       }
 
       return { success: true, user: data.user, needsConfirmation };
@@ -1848,6 +1857,7 @@ export const FinanceProvider = ({ children }) => {
         signOut,
         resetPassword,
         resolveEmailFromIdentifier,
+        triggerFireworks,
         signInWithGoogle,
         updateUserName,
         isPasswordRecovery,

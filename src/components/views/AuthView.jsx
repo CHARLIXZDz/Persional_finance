@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { Mail, Lock, User, Check, Sun, Moon, Eye, EyeOff, ShieldCheck } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { triggerFireworks } from '../../utils/confetti';
 import { FlagIcon } from '../common/FlagIcon';
 
 export const AuthView = () => {
@@ -82,16 +82,9 @@ export const AuthView = () => {
 
   const strength = getPasswordStrength(password);
 
-  // Trigger celebration confetti
+  // Trigger celebration fireworks
   const triggerConfetti = () => {
-    try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.65 },
-        colors: ['#10B981', '#6366F1', '#3B82F6', '#F59E0B'],
-      });
-    } catch {}
+    triggerFireworks();
   };
 
   // Switch tab helper

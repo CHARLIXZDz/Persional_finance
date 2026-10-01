@@ -116,8 +116,6 @@ export const AuthView = () => {
             ? getAuthText('errInvalidCredentials') || 'Email or password incorrect'
             : res.error || 'Login failed',
         });
-      } else {
-        triggerConfetti();
       }
     } catch (err) {
       setFieldErrors({ form: err.message });

@@ -1012,12 +1012,16 @@ export const FinanceProvider = ({ children }) => {
         if (event === 'PASSWORD_RECOVERY') {
           setIsPasswordRecovery(true);
         }
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setSession(null);
+          setTransactions([]);
+          setIsAuthLoading(false);
+          return;
+        }
         setSession(session);
         if (session?.user) {
           const { resolvedUser, resolvedAvatar } = await resolveUserProfile(session.user);
-          if (event === 'SIGNED_IN') {
-            triggerConfetti();
-          }
           if (!isManualAuthRef.current) {
             setUser(resolvedUser);
             if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
@@ -1025,22 +1029,8 @@ export const FinanceProvider = ({ children }) => {
             notifyOAuthSignIn(resolvedUser);
           }
         } else {
-          const storedDemo = localStorage.getItem('moneydairy_demo_user');
-          if (storedDemo) {
-            try {
-              const parsed = JSON.parse(storedDemo);
-              const { resolvedUser, resolvedAvatar } = await resolveUserProfile(parsed);
-              setUser(resolvedUser);
-              if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
-              fetchTransactions(resolvedUser);
-            } catch {
-              setUser(null);
-              setTransactions([]);
-            }
-          } else {
-            setUser(null);
-            setTransactions([]);
-          }
+          setUser(null);
+          setTransactions([]);
         }
         setIsAuthLoading(false);
       });
@@ -1270,9 +1260,6 @@ export const FinanceProvider = ({ children }) => {
       // Resolve complete user profile (protects custom name & avatar)
       const { resolvedUser, resolvedAvatar } = await resolveUserProfile(data.user);
 
-      // 2. Extra burst of fireworks on verified profile
-      triggerConfetti();
-
       const displayName =
         resolvedUser.user_metadata?.custom_full_name ||
         resolvedUser.user_metadata?.full_name ||
@@ -1387,28 +1374,44 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
+    // 1. Instantly clear user and session states (Immediate UI response, 0ms delay)
+    setUser(null);
+    setSession(null);
+    setTransactions([]);
+    setCurrentTab('dashboard');
+
+    // 2. Clear all local storage credentials immediately
     try {
       localStorage.removeItem('moneydairy_demo_user');
-      if (isSupabaseConfigured) {
-        await supabase.auth.signOut();
-      }
-      setUser(null);
-      setSession(null);
-      setTransactions([]);
-      showToast({
-        type: 'info',
-        title: language === 'vi' ? 'Đã đăng xuất' : language === 'lo' ? 'ອອກຈາກລະບົບ' : 'Signed Out',
-        message: language === 'vi'
+      localStorage.removeItem('moneydairy_user');
+      localStorage.removeItem('moneydairy_auth_token');
+      sessionStorage.clear();
+    } catch (e) {
+      console.warn('Storage cleanup error:', e);
+    }
+
+    // 3. Show logout toast
+    showToast({
+      type: 'info',
+      title: language === 'vi' ? 'Đã đăng xuất' : language === 'lo' ? 'ອອກຈາກລະບົບ' : 'Signed Out',
+      message:
+        language === 'vi'
           ? 'Bạn đã đăng xuất an toàn khỏi hệ thống.'
           : language === 'lo'
           ? 'ທ່ານໄດ້ອອກຈາກລະບົບຢ່າງປອດໄພແລ້ວ.'
           : 'You have signed out of your account.',
-      });
-    } catch (err) {
-      console.error('Sign out error:', err);
+    });
+
+    // 4. In background, inform Supabase (fire-and-forget, never traps or delays user)
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('Background Supabase signout error:', err);
+      }
     }
-  };
+  }, [language, showToast]);
 
   // Reset Password for Email or Username
   const resetPassword = useCallback(

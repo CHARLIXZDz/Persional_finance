@@ -156,67 +156,38 @@ const runNativeCanvasBurst = (canvas) => {
   requestAnimationFrame(frame);
 };
 
+let lastFireTime = 0;
+const CONFETTI_COOLDOWN_MS = 2500;
+
 /**
- * Triggers the beloved celebration animation exactly matching prototype:
- * 80 particles, spread 70, origin { y: 0.65 }, colors ['#10B981', '#6366F1', '#3B82F6', '#F59E0B'].
- * Followed by an energetic second burst for peak delight.
+ * Triggers the celebration animation:
+ * Exactly ONE clean, crisp, lightweight burst (70 particles, spread 70, origin y: 0.65)
+ * Protected by a 2.5s debounce lock so it never fires twice or causes GPU lag.
  */
 export const triggerConfetti = () => {
   if (typeof window === 'undefined') return;
+
+  const now = Date.now();
+  if (now - lastFireTime < CONFETTI_COOLDOWN_MS) {
+    // Strictly block duplicate triggers within 2.5s to prevent lag & double firing
+    return;
+  }
+  lastFireTime = now;
 
   const cannon = getCannon();
   let fired = false;
 
   if (cannon) {
     try {
-      // 1. Primary center burst (matching prototype)
+      // Exactly 1 single crisp burst (zero extra timeouts, zero lag)
       cannon({
-        particleCount: 80,
+        particleCount: 70,
         spread: 70,
         origin: { y: 0.65 },
         colors: BRAND_COLORS,
         disableForReducedMotion: false,
         zIndex: 999999,
       });
-
-      // 2. Dual left & right fireworks cross-blasts after 140ms (authentic fireworks celebration)
-      setTimeout(() => {
-        try {
-          cannon({
-            particleCount: 45,
-            angle: 60,
-            spread: 55,
-            origin: { x: 0.15, y: 0.7 },
-            colors: BRAND_COLORS,
-            disableForReducedMotion: false,
-            zIndex: 999999,
-          });
-          cannon({
-            particleCount: 45,
-            angle: 120,
-            spread: 55,
-            origin: { x: 0.85, y: 0.7 },
-            colors: BRAND_COLORS,
-            disableForReducedMotion: false,
-            zIndex: 999999,
-          });
-        } catch {}
-      }, 140);
-
-      // 3. Wide celebratory cascade after 280ms
-      setTimeout(() => {
-        try {
-          cannon({
-            particleCount: 65,
-            spread: 95,
-            origin: { y: 0.55 },
-            colors: BRAND_COLORS,
-            disableForReducedMotion: false,
-            zIndex: 999999,
-          });
-        } catch {}
-      }, 280);
-
       fired = true;
     } catch (err) {
       console.warn('Confetti cannon fire failed, falling back to native canvas:', err);

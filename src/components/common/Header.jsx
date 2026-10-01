@@ -31,7 +31,11 @@ export const Header = () => {
   }, []);
 
   // Dynamic user details
-  const displayName = user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : 'User');
+  const displayName =
+    user?.user_metadata?.custom_full_name ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    (user?.email ? user.email.split('@')[0] : 'User');
   const initials =
     user?.user_metadata?.initials ||
     displayName

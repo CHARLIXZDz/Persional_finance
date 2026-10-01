@@ -43,7 +43,11 @@ export const SettingsView = () => {
     t,
   } = useFinance();
 
-  const userName = user?.user_metadata?.full_name || (user?.email ? user.email.split('@')[0] : 'User');
+  const userName =
+    user?.user_metadata?.custom_full_name ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    (user?.email ? user.email.split('@')[0] : 'User');
   const userEmail = user?.email || 'user@moneydairy.app';
 
   // Name edit states

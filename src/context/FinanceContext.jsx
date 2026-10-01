@@ -118,9 +118,15 @@ export const FinanceProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       const uid = user.id || user.email || 'user';
-      const saved = localStorage.getItem(`moneydairy_avatar_${uid}`);
+      const email = (user.email || '').toLowerCase().trim();
+      const saved =
+        localStorage.getItem(`moneydairy_avatar_${uid}`) ||
+        (email ? localStorage.getItem(`moneydairy_avatar_${email}`) : null);
+
       if (saved) {
         setAvatarUrl(saved);
+      } else if (user.user_metadata?.custom_avatar_url) {
+        setAvatarUrl(user.user_metadata.custom_avatar_url);
       } else if (user.user_metadata?.avatar_url) {
         setAvatarUrl(user.user_metadata.avatar_url);
       } else {
@@ -131,10 +137,11 @@ export const FinanceProvider = ({ children }) => {
     }
   }, [user]);
 
-  // Update avatar - Uploads to Supabase Storage 'avatars' bucket & saves clean public URL
+  // Update avatar - Uploads to Supabase Storage 'avatars' bucket, updates profiles table, and saves custom avatar metadata
   const updateAvatar = useCallback(async (dataUrl) => {
     const activeUser = userRef.current;
     const uid = activeUser ? (activeUser.id || activeUser.email || 'user') : 'user';
+    const email = (activeUser?.email || '').toLowerCase().trim();
     setAvatarUrl(dataUrl);
 
     try {
@@ -163,7 +170,9 @@ export const FinanceProvider = ({ children }) => {
           const fileName = `avatar-${uid}-${Date.now()}.jpg`;
 
           // Clean up old avatar file for this user if any
-          const oldSaved = localStorage.getItem(`moneydairy_avatar_${uid}`);
+          const oldSaved =
+            localStorage.getItem(`moneydairy_avatar_${uid}`) ||
+            (email ? localStorage.getItem(`moneydairy_avatar_${email}`) : null);
           if (oldSaved && oldSaved.includes('/avatars/')) {
             const oldPath = oldSaved.split('/avatars/')[1]?.split('?')[0];
             if (oldPath) {
@@ -197,10 +206,27 @@ export const FinanceProvider = ({ children }) => {
 
       if (finalAvatarUrl) {
         localStorage.setItem(`moneydairy_avatar_${uid}`, finalAvatarUrl);
+        if (email) localStorage.setItem(`moneydairy_avatar_${email}`, finalAvatarUrl);
       } else {
         localStorage.removeItem(`moneydairy_avatar_${uid}`);
+        if (email) localStorage.removeItem(`moneydairy_avatar_${email}`);
       }
 
+      // Update in-memory user state immediately
+      setUser((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          user_metadata: {
+            ...(prev.user_metadata || {}),
+            avatar_url: finalAvatarUrl || '',
+            custom_avatar_url: finalAvatarUrl || '',
+            has_custom_avatar: Boolean(finalAvatarUrl),
+          },
+        };
+      });
+
+      // Persist to Supabase Auth & public.profiles
       if (
         isSupabaseConfigured &&
         activeUser?.id &&
@@ -208,8 +234,23 @@ export const FinanceProvider = ({ children }) => {
         activeUser.id !== 'demo-guest-102'
       ) {
         await supabase.auth.updateUser({
-          data: { avatar_url: finalAvatarUrl || '' },
+          data: {
+            avatar_url: finalAvatarUrl || '',
+            custom_avatar_url: finalAvatarUrl || '',
+            has_custom_avatar: Boolean(finalAvatarUrl),
+          },
         });
+
+        try {
+          await supabase.from('profiles').upsert({
+            id: activeUser.id,
+            email: activeUser.email,
+            avatar_url: finalAvatarUrl || null,
+            updated_at: new Date().toISOString(),
+          });
+        } catch (profileErr) {
+          console.warn('Failed to upsert avatar to profiles table:', profileErr);
+        }
       }
     } catch (e) {
       console.warn('Failed to persist avatar:', e);
@@ -219,7 +260,11 @@ export const FinanceProvider = ({ children }) => {
   const removeAvatar = useCallback(async () => {
     const activeUser = userRef.current;
     const uid = activeUser ? (activeUser.id || activeUser.email || 'user') : 'user';
-    const oldSaved = localStorage.getItem(`moneydairy_avatar_${uid}`);
+    const email = (activeUser?.email || '').toLowerCase().trim();
+    const oldSaved =
+      localStorage.getItem(`moneydairy_avatar_${uid}`) ||
+      (email ? localStorage.getItem(`moneydairy_avatar_${email}`) : null);
+
     if (isSupabaseConfigured && oldSaved && oldSaved.includes('/avatars/')) {
       const oldPath = oldSaved.split('/avatars/')[1]?.split('?')[0];
       if (oldPath) {
@@ -228,8 +273,50 @@ export const FinanceProvider = ({ children }) => {
         } catch {}
       }
     }
-    await updateAvatar(null);
-  }, [updateAvatar]);
+
+    localStorage.removeItem(`moneydairy_avatar_${uid}`);
+    if (email) localStorage.removeItem(`moneydairy_avatar_${email}`);
+
+    setUser((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        user_metadata: {
+          ...(prev.user_metadata || {}),
+          avatar_url: '',
+          custom_avatar_url: '',
+          has_custom_avatar: false,
+        },
+      };
+    });
+
+    if (
+      isSupabaseConfigured &&
+      activeUser?.id &&
+      activeUser.id !== 'demo-alex-101' &&
+      activeUser.id !== 'demo-guest-102'
+    ) {
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            avatar_url: '',
+            custom_avatar_url: '',
+            has_custom_avatar: false,
+          },
+        });
+        await supabase.from('profiles').upsert({
+          id: activeUser.id,
+          email: activeUser.email,
+          avatar_url: null,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.warn('Remove avatar sync error:', err);
+      }
+    }
+
+    setAvatarUrl(null);
+  }, []);
 
   // Update User Display Name
   const updateUserName = useCallback(
@@ -243,6 +330,7 @@ export const FinanceProvider = ({ children }) => {
       if (!activeUser) return { success: false, error: 'No user logged in' };
 
       const uid = activeUser.id || activeUser.email || 'user';
+      const email = (activeUser.email || '').toLowerCase().trim();
 
       try {
         // 1. Persist to Supabase Auth if real registered user
@@ -253,16 +341,28 @@ export const FinanceProvider = ({ children }) => {
           activeUser.id !== 'demo-guest-102'
         ) {
           const { data, error } = await supabase.auth.updateUser({
-            data: { full_name: trimmed },
+            data: {
+              full_name: trimmed,
+              custom_full_name: trimmed,
+              has_custom_name: true,
+            },
           });
 
           if (error) {
             console.warn('Supabase updateUser error:', error.message);
           } else if (data?.user) {
-            setUser(data.user);
+            setUser((prev) => ({
+              ...(data.user || prev),
+              user_metadata: {
+                ...(data.user?.user_metadata || prev?.user_metadata || {}),
+                full_name: trimmed,
+                custom_full_name: trimmed,
+                has_custom_name: true,
+              },
+            }));
           }
 
-          // Optional: Also upsert to public.profiles table if user created it
+          // Also upsert to public.profiles table
           try {
             await supabase.from('profiles').upsert({
               id: activeUser.id,
@@ -270,11 +370,16 @@ export const FinanceProvider = ({ children }) => {
               full_name: trimmed,
               updated_at: new Date().toISOString(),
             });
-          } catch {}
+          } catch (profileErr) {
+            console.warn('Profile name upsert error:', profileErr);
+          }
         }
 
-        // 2. Always persist to localStorage cache
+        // 2. Always persist to localStorage cache (both UID and Email)
         localStorage.setItem(`moneydairy_user_name_${uid}`, trimmed);
+        if (email) {
+          localStorage.setItem(`moneydairy_user_name_${email}`, trimmed);
+        }
 
         setUser((prev) => {
           if (!prev) return prev;
@@ -283,6 +388,8 @@ export const FinanceProvider = ({ children }) => {
             user_metadata: {
               ...(prev.user_metadata || {}),
               full_name: trimmed,
+              custom_full_name: trimmed,
+              has_custom_name: true,
             },
           };
           if (prev.id?.startsWith('demo-')) {
@@ -668,20 +775,135 @@ export const FinanceProvider = ({ children }) => {
   useEffect(() => {
     let isMounted = true;
 
-    const applySavedDisplayName = (u) => {
-      if (!u) return u;
+    const resolveUserProfile = async (u) => {
+      if (!u) return { resolvedUser: u, resolvedAvatar: null };
       const uid = u.id || u.email || 'user';
-      const savedName = localStorage.getItem(`moneydairy_user_name_${uid}`);
-      if (savedName) {
-        return {
-          ...u,
-          user_metadata: {
-            ...(u.user_metadata || {}),
-            full_name: savedName,
-          },
-        };
+      const email = (u.email || '').toLowerCase().trim();
+
+      // 1. Check local storage cache (by UID and by Email)
+      const localName =
+        localStorage.getItem(`moneydairy_user_name_${uid}`) ||
+        (email ? localStorage.getItem(`moneydairy_user_name_${email}`) : null);
+
+      const localAvatar =
+        localStorage.getItem(`moneydairy_avatar_${uid}`) ||
+        (email ? localStorage.getItem(`moneydairy_avatar_${email}`) : null);
+
+      // 2. Query public.profiles table from Supabase
+      let dbName = null;
+      let dbAvatar = null;
+      if (isSupabaseConfigured && u.id && !u.id.startsWith('demo-')) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', u.id)
+            .maybeSingle();
+
+          if (profile) {
+            dbName = profile.full_name;
+            dbAvatar = profile.avatar_url;
+          }
+        } catch (dbErr) {
+          console.warn('Database profile query error:', dbErr);
+        }
       }
-      return u;
+
+      // 3. Custom fields in user_metadata (Google OAuth never overwrites custom keys)
+      const metaCustomName = u.user_metadata?.custom_full_name;
+      const metaCustomAvatar = u.user_metadata?.custom_avatar_url;
+
+      // Determine authoritative Name:
+      // Priority: metaCustomName > localName > (dbName if different from Google raw name) > dbName > user_metadata.full_name > user_metadata.name > email
+      const resolvedName =
+        metaCustomName ||
+        localName ||
+        (dbName && dbName !== u.user_metadata?.name ? dbName : null) ||
+        dbName ||
+        u.user_metadata?.full_name ||
+        u.user_metadata?.name ||
+        (email ? email.split('@')[0] : 'User');
+
+      // Determine authoritative Avatar:
+      // Any uploaded avatar in Supabase Storage contains '/avatars/' in the URL!
+      const isDbUploadedAvatar = dbAvatar && dbAvatar.includes('/avatars/');
+      const isLocalUploadedAvatar = localAvatar && localAvatar.includes('/avatars/');
+      const isMetaUploadedAvatar = metaCustomAvatar && metaCustomAvatar.includes('/avatars/');
+
+      const resolvedAvatar =
+        (isMetaUploadedAvatar ? metaCustomAvatar : null) ||
+        (isDbUploadedAvatar ? dbAvatar : null) ||
+        (isLocalUploadedAvatar ? localAvatar : null) ||
+        metaCustomAvatar ||
+        localAvatar ||
+        dbAvatar ||
+        u.user_metadata?.avatar_url ||
+        u.user_metadata?.picture ||
+        null;
+
+      // 4. If Google OAuth overwrote metadata or if custom metadata is missing:
+      // Re-sync back to Supabase Auth user_metadata AND public.profiles so it stays protected!
+      const isGoogleOAuth =
+        u.app_metadata?.provider === 'google' ||
+        u.identities?.some((i) => i.provider === 'google');
+
+      if (
+        isSupabaseConfigured &&
+        u.id &&
+        !u.id.startsWith('demo-') &&
+        (isGoogleOAuth ||
+          resolvedName !== u.user_metadata?.full_name ||
+          resolvedAvatar !== u.user_metadata?.avatar_url ||
+          !u.user_metadata?.custom_full_name)
+      ) {
+        setTimeout(async () => {
+          try {
+            await supabase.auth.updateUser({
+              data: {
+                full_name: resolvedName,
+                custom_full_name: resolvedName,
+                avatar_url: resolvedAvatar || '',
+                custom_avatar_url: resolvedAvatar || '',
+                has_custom_profile: true,
+              },
+            });
+
+            await supabase.from('profiles').upsert({
+              id: u.id,
+              email: u.email,
+              full_name: resolvedName,
+              avatar_url: resolvedAvatar,
+              updated_at: new Date().toISOString(),
+            });
+          } catch (reSyncErr) {
+            console.warn('Background profile re-sync error:', reSyncErr);
+          }
+        }, 50);
+      }
+
+      // Re-cache to localStorage under both UID and Email
+      if (resolvedName) {
+        localStorage.setItem(`moneydairy_user_name_${uid}`, resolvedName);
+        if (email) localStorage.setItem(`moneydairy_user_name_${email}`, resolvedName);
+      }
+      if (resolvedAvatar) {
+        localStorage.setItem(`moneydairy_avatar_${uid}`, resolvedAvatar);
+        if (email) localStorage.setItem(`moneydairy_avatar_${email}`, resolvedAvatar);
+      }
+
+      const finalUser = {
+        ...u,
+        user_metadata: {
+          ...(u.user_metadata || {}),
+          full_name: resolvedName,
+          custom_full_name: resolvedName,
+          avatar_url: resolvedAvatar || '',
+          custom_avatar_url: resolvedAvatar || '',
+          has_custom_profile: true,
+        },
+      };
+
+      return { resolvedUser: finalUser, resolvedAvatar };
     };
 
     const notifyOAuthSignIn = (u) => {
@@ -695,6 +917,7 @@ export const FinanceProvider = ({ children }) => {
           window.history.replaceState(null, '', window.location.pathname);
         }
         const name =
+          u.user_metadata?.custom_full_name ||
           u.user_metadata?.full_name ||
           u.user_metadata?.name ||
           u.email?.split('@')[0] ||
@@ -728,9 +951,10 @@ export const FinanceProvider = ({ children }) => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user && isMounted) {
-            const resolvedUser = applySavedDisplayName(session.user);
+            const { resolvedUser, resolvedAvatar } = await resolveUserProfile(session.user);
             setSession(session);
             setUser(resolvedUser);
+            if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
             setIsAuthLoading(false);
             fetchTransactions(resolvedUser);
             notifyOAuthSignIn(resolvedUser);
@@ -746,8 +970,9 @@ export const FinanceProvider = ({ children }) => {
         const storedDemo = localStorage.getItem('moneydairy_demo_user');
         if (storedDemo && isMounted) {
           const parsed = JSON.parse(storedDemo);
-          const resolvedUser = applySavedDisplayName(parsed);
+          const { resolvedUser, resolvedAvatar } = await resolveUserProfile(parsed);
           setUser(resolvedUser);
+          if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
           fetchTransactions(resolvedUser);
         } else if (isMounted) {
           setUser(null);
@@ -775,15 +1000,16 @@ export const FinanceProvider = ({ children }) => {
     restoreSession();
 
     if (isSupabaseConfigured) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (!isMounted) return;
         if (event === 'PASSWORD_RECOVERY') {
           setIsPasswordRecovery(true);
         }
         setSession(session);
         if (session?.user) {
-          const resolvedUser = applySavedDisplayName(session.user);
+          const { resolvedUser, resolvedAvatar } = await resolveUserProfile(session.user);
           setUser(resolvedUser);
+          if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
           fetchTransactions(resolvedUser);
           notifyOAuthSignIn(resolvedUser);
         } else {
@@ -791,8 +1017,9 @@ export const FinanceProvider = ({ children }) => {
           if (storedDemo) {
             try {
               const parsed = JSON.parse(storedDemo);
-              const resolvedUser = applySavedDisplayName(parsed);
+              const { resolvedUser, resolvedAvatar } = await resolveUserProfile(parsed);
               setUser(resolvedUser);
+              if (resolvedAvatar) setAvatarUrl(resolvedAvatar);
               fetchTransactions(resolvedUser);
             } catch {
               setUser(null);
